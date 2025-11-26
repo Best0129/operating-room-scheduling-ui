@@ -1,0 +1,14 @@
+[theme]
+# สีหลัก (Primary Color) ที่ใช้สำหรับปุ่ม, Slider, และสี Hover
+primaryColor="#1E40AF" 
+
+# สีพื้นหลังของส่วนหลัก (Main Content Background)
+# backgroundColor="#FFFFFF" 
+
+# สีพื้นหลังของ Sidebar
+# secondaryBackgroundColor="#F0F2F6" 
+
+# สีข้อความ
+# textColor="#303030" 
+
+# font="sans serif"
