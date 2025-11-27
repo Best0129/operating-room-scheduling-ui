@@ -6,7 +6,6 @@ from kagglehub import KaggleDatasetAdapter
 from config.ga_config import SERVICE_TO_CLUSTER, BUFFER_SLOTS
 
 def load_dataset_kagglehub():
-    # ⚠️ ตรวจสอบว่าไฟล์อยู่จริงใน data/ หรือถูกโหลดจาก Kaggle
     file_path = "2022_Q1_OR_Utilization.csv"
     try:
         # โค้ดสำหรับดึงข้อมูลจริงจาก Kaggle (ถ้าจำเป็น)

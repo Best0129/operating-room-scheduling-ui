@@ -10,14 +10,12 @@ from src.utils import slot_to_time
 from src.algorithms.ga_scheduler import run_ga 
 
 
-# --- 1. CACHING DATA LOAD (ต้องรับพารามิเตอร์เวลา) ---
 @st.cache_data
 def load_data(slot_duration):
     df = load_dataset_kagglehub()
     surgeries = parse_surgeries(df, slot_duration)
     return surgeries
 
-# --- 2. INITIALIZE SESSION STATE ---
 if 'ga_results' not in st.session_state:
     st.session_state.ga_results = None
     
@@ -41,9 +39,12 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-# =================================================================
-# --- SIDEBAR: ส่วนควบคุม (UI Controls) ---
+# --- SIDEBAR ---
 with st.sidebar:
+    # st.logo(
+    #     "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Tesla_logo.png/960px-Tesla_logo.png",
+    #     size="large"
+    #     )
     st.header("ตั้งค่าเวลาการทำงานห้องผ่าตัด")
     
     # INPUT 1: SLOT DURATION
@@ -90,12 +91,12 @@ else:
     operating_time = OPERATING_TIME
     
 
-# --- 3. DATA LOADING ---
+# --- DATA LOADING ตอนกำลังจำลอง ---
 surgeries_list = load_data(input_slot_duration)
 st.info(f"เคสผ่าตัดทั้งหมดที่จะใช้ในการจำลอง: {len(surgeries_list)} เคส")
 
 
-# --- 4. EXECUTION ---
+# --- ถ้ากดปุ่มจำลอง ---
 if run_button:
     with st.spinner(f"กำลังรัน Genetic Algorithm รอบที่ {num_generations} ..."):
         
@@ -108,7 +109,7 @@ if run_button:
             input_slot_duration
         )
         
-    # 💾 เก็บผลลัพธ์ไว้ใน session state
+    # เก็บผลลัพธ์ไว้ใน session state
     st.session_state.ga_results = {
         'final_individual': final_individual,
         'history': history,
@@ -119,13 +120,9 @@ if run_button:
         'SLOT_DURATION_FINAL': input_slot_duration
     }
     st.success(f"การจำลองเสร็จสมบูรณ์! Final Best Fitness: {final_individual['fitness']:.4f}")
-    # st.experimental_rerun() # ไม่จำเป็นถ้าไม่มี UI ที่ซับซ้อนตามมา
 
 
-# =================================================================
-# 5. การแสดงผลลัพธ์ (RESULTS DISPLAY - แนวตั้ง)
-# =================================================================
-
+# --- แสดงผลลัพธ์ ---
 if st.session_state.ga_results:
     # ดึงค่า Dynamic Time ที่คำนวณและรันแล้วออกมา
     results = st.session_state.ga_results
@@ -145,11 +142,9 @@ if st.session_state.ga_results:
     st.header("📊 ผลลัพธ์การจำลองการจัดตารางเวลาห้องผ่าตัด")
     # st.markdown(f"**ระยะเวลาในการปฏิบัติงาน:** {TOTAL_SLOTS_START_TIME} ถึง {TOTAL_SLOTS_END_TIME} ({TOTAL_SLOTS_FINAL} slots)")
 
-    # ----------------------------------------------------
-    # 🟢 NEW LOGIC: สร้าง MASTER DATAFRAME สำหรับ Download
-    # ----------------------------------------------------
+    # สร้าง DATAFRAME สำหรับเอาไว้ Download ตารางเวลาทั้งหมด
     all_case_data = []
-    sorted_or_ids = sorted(OR_schedules.keys()) # เรียงลำดับห้องเพื่อความเรียบร้อย
+    sorted_or_ids = sorted(OR_schedules.keys())
 
     for or_id in sorted_or_ids:
         schedule = OR_schedules[or_id]
@@ -159,7 +154,7 @@ if st.session_state.ga_results:
                 end_time = slot_to_time(s['end_slot'], OPERATING_TIME_FINAL, SLOT_DURATION_FINAL)
                 
                 all_case_data.append({
-                    "OR ID": or_id, # เพิ่ม OR ID เข้าไปในตารางดาวน์โหลด
+                    "ห้องผ่าตัด (OR)": or_id,
                     "รหัสเคส": s['Encounter ID'],
                     "ประเภทการผ่าตัด": s['Service'],
                     "Start Slot": s['start_slot'],
@@ -168,22 +163,12 @@ if st.session_state.ga_results:
                     "เวลาสิ้นสุด": end_time,
                     "Slots ที่ใช้": s['slots_used'],
                 })
-
     df_master_schedule = pd.DataFrame(all_case_data)
-
-    
     st.markdown("---")
     
-    # ----------------------------------------------------
-    # 5.1 DETAILED SCHEDULE SECTION (ตารางรายละเอียดเคสทีละ OR)
-    # ----------------------------------------------------
-    st.subheader("1. ตารางเวลาและรายละเอียดเคสแต่ละห้องผ่าตัด")
-    
-    # 🎯 การเรียงลำดับห้อง (ใช้ sorted_or_ids ที่กำหนดไว้แล้ว)
-
-    for or_id in sorted_or_ids: 
-        schedule = OR_schedules[or_id] 
-        
+    st.subheader("1. ตารางเวลาและรายละเอียดเคสแต่ละห้องผ่าตัด")    
+    for or_id in sorted_or_ids:
+        schedule = OR_schedules[or_id]
         if schedule:
             final_used = total_used_slots.get(or_id, 0)
             overtime = max(0, final_used - TOTAL_SLOTS_FINAL)
@@ -208,12 +193,9 @@ if st.session_state.ga_results:
                 
             df_case_details = pd.DataFrame(case_data)
             st.dataframe(df_case_details.set_index('รหัสเคส'), use_container_width=True)
-            
     st.markdown("---")
 
-    # 5.2 SUMMARY SECTION (ตารางสรุป Utilization)
     st.subheader("2. สรุปประสิทธิภาพโดยรวมแต่ละห้องผ่าตัด (Utilization & Overtime)")
-    
     summary_rows = []
     for or_id, schedule in OR_schedules.items():
         final_used = total_used_slots.get(or_id, 0)
@@ -229,20 +211,14 @@ if st.session_state.ga_results:
         
     df_summary = pd.DataFrame(summary_rows)
     st.dataframe(df_summary.set_index('ห้องผ่าตัด (OR)'), use_container_width=True)
-    
     st.markdown("---")
     
-    # 5.3 CONVERGENCE PLOT (กราฟลู่เข้า)
     st.subheader("3. กราฟแสดงการเปรียบเทียบระหว่างค่า Fitness Score กับคำตอบในแต่ละ Generations")
     df_history = pd.DataFrame(history, columns=['Best Fitness Score'])
     st.line_chart(df_history)
 
-
-    # ----------------------------------------------------
-    # 🟢 ดาวโหลดไฟล์
-    # ----------------------------------------------------
+    # ดาวโหลดไฟล์
     st.markdown("#### ⬇️ ดาวน์โหลดผลลัพธ์การจัดตารางเวลาห้องผ่าตัด")
-    
     # แปลง DataFrame เป็น CSV (ไม่เอา index)
     csv = df_master_schedule.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
     st.download_button(
