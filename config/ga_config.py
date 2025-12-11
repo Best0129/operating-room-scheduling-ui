@@ -15,7 +15,7 @@ TOTAL_SLOTS = int((OPERATING_TIME[1] - OPERATING_TIME[0]) * 60 / SLOT_DURATION_M
 POP_SIZE = 50           
 NUM_GENERATIONS = 200   
 CROSSOVER_RATE = 0.9    
-MUTATION_RATE = 0.2     
+MUTATION_RATE = 0.2 # เดี๋ยวต้องเอาออกเพราะใช้ Q-learning ในการปรับ
 
 TOURNAMENT_SIZE = 2     
 ELITISM_RATE = 0.02     # 4% Elitism (2 out of 50)
@@ -27,7 +27,20 @@ W_IMBALANCE = 0.5       # Weight สำหรับ Imbalance Penalty
 
 
 # =====================================================
-# 3. MAPPING AND CONSTRAINTS
+# 3. Q-LEARNING HYPERPARAMETERS (Meta-Controller)
+# =====================================================
+ALPHA = 0.1             # Learning Rate
+GAMMA = 0.9             # Discount Factor
+EPSILON_START = 0.9     # Initial Exploration Rate
+EPSILON_DECAY = 0.995   # Rate to decay epsilon each generation
+
+# Threshold สำหรับวัด Diversity (เทียบกับค่า Variance เริ่มต้น)
+# ค่านี้จะถูกคำนวณแบบ Dynamic ใน GA Loop
+FITNESS_VAR_THRESHOLD_FACTOR = 0.05
+
+
+# =====================================================
+# 4. MAPPING AND CONSTRAINTS
 # =====================================================
 SERVICE_TO_CLUSTER = {
     'ENT': 'B', 'General': 'A', 'OBGYN': 'B', 'Ophthalmology': 'C',

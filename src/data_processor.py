@@ -25,7 +25,7 @@ def load_dataset_kagglehub():
     return df_days
 
 
-def parse_surgeries(df, slot_duration):
+def parse_surgeries(df, slot_duration, buffer_slots):
     surgeries = []
     for _, row in df.iterrows():
         try:
@@ -44,7 +44,7 @@ def parse_surgeries(df, slot_duration):
                 'or_suite': int(row.get('OR Suite', 0)), # ใช้ .get() เพื่อความปลอดภัย
                 'booked_time': booked,
                 'slots_needed': slots_needed,
-                'buffer_slots': BUFFER_SLOTS
+                'buffer_slots': buffer_slots
             })
         except (ValueError, KeyError):
             continue # ข้ามแถวที่มีข้อมูลไม่สมบูรณ์

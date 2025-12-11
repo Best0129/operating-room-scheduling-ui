@@ -74,7 +74,7 @@ def decode_individual(individual, surgeries):
     return OR_schedules, total_used_slots
 
 # --- FITNESS FUNCTION ---
-def evaluate_fitness(total_used_slots, total_slots, W_OVERTIME, W_IMBALANCE):
+def evaluate_fitness(OR_schedules, total_used_slots, total_slots, W_OVERTIME, W_IMBALANCE):
     
     total_overtime = 0
     total_imbalance = 0
