@@ -1,12 +1,8 @@
-# src/algorithms/ga_scheduler.py
-
 import random
 import copy
 import numpy as np
 from collections import defaultdict
-from tqdm import tqdm # ใช้สำหรับแสดง progress bar ใน Terminal
-
-# Import Shared Logic and Constants
+from tqdm import tqdm
 from src.utils import decode_individual, evaluate_fitness
 from config.ga_config import * 
 
@@ -22,8 +18,10 @@ def get_state(population, fitness_var_threshold):
     """
     fitness_var = np.var([ind['fitness'] for ind in population])
     return 0 if fitness_var > fitness_var_threshold else 1
+    # ถ้าค่าที่คำนวณได้มากกว่า เกณฑ์ = High Diversity (State 0)
+    # ถ้าน้อยกว่าหรือเท่ากับ = Low Diversity (State 1)
 
-# Q-Action Mapping (สำหรับ Hybrid GA)
+# Q-Action Mapping
 OPERATOR_MAP = {
     0: {'crossover': 'single', 'mutation_rate': 0.01}, # Single-point + low mutation
     1: {'crossover': 'two', 'mutation_rate': 0.01},    # Two-point + low mutation
@@ -33,7 +31,7 @@ OPERATOR_MAP = {
 
 
 # ----------------------------------------------------
-# B. CORE GA (ใช้ร่วมกัน)
+# CORE GA (ใช้ร่วมกัน)
 # ----------------------------------------------------
 
 def generate_initial_population(surgeries, pop_size):
@@ -81,16 +79,15 @@ def tournament_selection(population, tournament_size, num_parents):
 
 
 # ----------------------------------------------------
-# C. Crossover/Mutation OPERATORS (ตาม Action Space)
+# Crossover/Mutation OPERATORS (ตาม Action ที่จะให้ Q-Agent เลือก)
 # ----------------------------------------------------
 
 def crossover_single_point(parent1, parent2):
-    """ใช้ Logic Order Crossover (OX1) เดิมของคุณ (ซึ่งใช้จุดตัดเดียว)"""
+    """จุดตัดเดียว (OX1)"""
     p1_order = parent1['order']
     p2_order = parent2['order']
     size = len(p1_order)
     
-    # ใช้ Logic OX1 เป็น Single-point crossover
     start, end = sorted(random.sample(range(size), 2)) # สุ่ม 2 จุด เพื่อเลือกช่วงกลาง
     
     # 1. Crossover 'order' (OX1)
@@ -106,7 +103,7 @@ def crossover_single_point(parent1, parent2):
         offspring_order[fill_idx] = item
         fill_idx += 1
         
-    # 2. Crossover 'assigned_or_list' (Two-Point Crossover on OR list)
+    # 2. Crossover 'assigned_or_list' (ใช้ Map-based approach)
     p1_or = parent1['assigned_or_list']
     p2_or = parent2['assigned_or_list']
     offspring_or_map = {}
@@ -124,12 +121,12 @@ def crossover_single_point(parent1, parent2):
 
 
 def crossover_two_point(parent1, parent2):
-    """ดัดแปลงจาก OX1 ให้มีความแตกต่าง (เลือก 2 ช่วง)"""
+    """จุดตัดสองจุด (เลือก 2 ช่วง)"""
     p1_order = parent1['order']
     p2_order = parent2['order']
     size = len(p1_order)
     
-    # Logic: สุ่ม 2 จุดตัด (p1, p2) และเลือกช่วง [0:p1] และ [p2:] จาก P1
+    # สุ่ม 2 จุดตัด (p1, p2) และเลือกช่วง [0:p1] และ [p2:] จาก P1
     p1 = random.randint(1, size // 2)
     p2 = random.randint(size // 2, size - 1)
     
@@ -139,7 +136,7 @@ def crossover_two_point(parent1, parent2):
     offspring_order[:p1] = p1_order[:p1]
     offspring_order[p2:] = p1_order[p2:]
     
-    # เติมส่วนที่เหลือจาก P2 (Fill middle gap)
+    # เติมส่วนที่เหลือจาก P2
     fill_elements = [item for item in p2_order if item not in offspring_order]
     
     fill_idx = p1 
@@ -154,7 +151,7 @@ def crossover_two_point(parent1, parent2):
     for i in list(range(p1)) + list(range(p2, size)):
         offspring_or_map[offspring_order[i]] = parent1['assigned_or_list'][p1_order.index(offspring_order[i])]
 
-    # ORs จาก P2 (เติมเต็ม)
+    # ORs จาก P2 (เติมให้เต็ม)
     for item in fill_elements:
         if item not in offspring_or_map:
             offspring_or_map[item] = parent2['assigned_or_list'][p2_order.index(item)]
@@ -198,7 +195,7 @@ def mutate_with_rate(individual, surgeries, rate):
 
 
 # ----------------------------------------------------
-# D. MAIN RUN FUNCTIONS (Standard GA และ Hybrid GA-Q)
+# RUN (Standard GA และ Hybrid GA-Q)
 # ----------------------------------------------------
 
 def run_ga_standard(surgeries, num_gen, pop_size, total_slots, operating_time, slot_duration):
@@ -262,12 +259,12 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, operating_time, s
     q_table = initialize_q_table()
     epsilon = EPSILON_START
     
-    # 1.1 Initial Evaluation
+    # Initial Evaluation
     for individual in population:
         OR_schedules, total_used_slots = decode_individual(individual, surgeries)
         individual['fitness'] = evaluate_fitness(OR_schedules, total_used_slots, total_slots, W_OVERTIME, W_IMBALANCE)
 
-    # 1.2 คำนวณ Threshold สำหรับ State
+    # คำนวณ Threshold สำหรับ State
     initial_var = np.var([ind['fitness'] for ind in population])
     fitness_var_threshold = initial_var * FITNESS_VAR_THRESHOLD_FACTOR
     
@@ -275,10 +272,9 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, operating_time, s
     old_best_fitness = min(population, key=lambda ind: ind['fitness'])['fitness'] 
     best_fitness_history.append(old_best_fitness) 
     
-    # 2. EVOLUTIONARY CYCLE (Hybrid Q-GA)
     for generation in tqdm(range(num_gen), desc="Hybrid GA-Q"):
         
-        # 2.1 Q-LEARNING OBSERVATION AND DECISION
+        # Q-LEARNING OBSERVATION AND DECISION
         current_state = get_state(population, fitness_var_threshold)
         
         # ε-greedy Strategy
@@ -287,33 +283,33 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, operating_time, s
         else:
             action = np.argmax(q_table[current_state]) # Exploitation
             
-        # 2.2 SET OPERATORS
+        # SET OPERATORS
         operators = OPERATOR_MAP[action]
         crossover_type = operators['crossover']
         mutation_rate = operators['mutation_rate'] 
         
-        # 2.3 ELITISM
+        # ELITISM
         population.sort(key=lambda ind: ind['fitness'])
         elites = population[:NUM_ELITES] 
         next_population = copy.deepcopy(elites)
         
-        # 2.4 REPRODUCTION
+        # REPRODUCTION
         num_parents = int(pop_size * 0.5) 
         parents = tournament_selection(population, TOURNAMENT_SIZE, num_parents)
         
         while len(next_population) < pop_size:
             parent1, parent2 = random.choice(parents), random.choice(parents) 
 
-            # Crossover Function ที่ถูกเลือกโดย Q-Agent
+            # Crossover เลือกโดย Q-Agent
             if random.random() < CROSSOVER_RATE:
                 if crossover_type == 'single':
                     offspring = crossover_single_point(parent1, parent2)
-                else: # 'two'
+                else:
                     offspring = crossover_two_point(parent1, parent2)
             else:
                 offspring = copy.deepcopy(parent1)
             
-            # Mutation Function ที่ใช้ Rate ที่ถูกเลือกโดย Q-Agent
+            # Mutation โดยใช้ Rate ที่เลือกโดย Q-Agent
             offspring = mutate_with_rate(offspring, surgeries, mutation_rate) 
             
             # Evaluation
@@ -322,10 +318,9 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, operating_time, s
             
             next_population.append(offspring)
 
-        # 2.5 REPLACEMENT
         population = next_population
         
-        # 2.6 REWARD CALCULATION AND Q-TABLE UPDATE
+        # คำนวณ Fitness ใหม่ และ Reward สำหรับ Q-Learning
         new_best_fitness = min(population, key=lambda ind: ind['fitness'])['fitness']
         
         # คำนวณ Reward: (ค่าเก่า - ค่าใหม่)

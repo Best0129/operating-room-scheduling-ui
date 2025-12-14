@@ -3,9 +3,9 @@
 # =====================================================
 OPERATING_TIME = (7.0, 15.0)  # เริ่ม 07:00 ถึง 15:00 น.
 SLOT_DURATION_MIN = 15        # 1 slot = 15 นาที
-BUFFER_SLOTS = 1              # Buffer time (Turnover time) = 1 slot
+BUFFER_SLOTS = 1              # Buffer time = 1 slot
 
-# Calculated Total Slots (8 ชม. * 60 นาที / 15 นาที/slot = 32 slots)
+# Total Slots (8 ชม. * 60 นาที / 15 นาที/slot = 32 slots)
 TOTAL_SLOTS = int((OPERATING_TIME[1] - OPERATING_TIME[0]) * 60 / SLOT_DURATION_MIN)
 
 
