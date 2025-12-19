@@ -78,9 +78,6 @@ def evaluate_fitness(OR_schedules, total_used_slots, total_slots, W_OVERTIME, W_
     total_overtime = 0
     total_imbalance = 0
     
-    total_overtime = 0  
-    total_imbalance = 0
-    
     # 1. คำนวณ Overtime
     for or_id, final_slot_used in total_used_slots.items():
         overtime = max(0, final_slot_used - total_slots)

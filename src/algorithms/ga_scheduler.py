@@ -265,7 +265,7 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, operating_time, s
         individual['fitness'] = evaluate_fitness(OR_schedules, total_used_slots, total_slots, W_OVERTIME, W_IMBALANCE)
 
     # คำนวณ Threshold สำหรับ State
-    initial_var = np.var([ind['fitness'] for ind in population])
+    initial_var = np.var([ind['fitness'] for ind in population]) # ค่า Variance เริ่มต้น ความหลากหลาย 
     fitness_var_threshold = initial_var * FITNESS_VAR_THRESHOLD_FACTOR
     
     best_fitness_history = []
@@ -324,7 +324,7 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, operating_time, s
         new_best_fitness = min(population, key=lambda ind: ind['fitness'])['fitness']
         
         # คำนวณ Reward: (ค่าเก่า - ค่าใหม่)
-        reward = old_best_fitness - new_best_fitness 
+        reward = old_best_fitness - new_best_fitness # ถ้าค่าใหม่ดีกว่า (น้อยกว่า) จะได้รางวัลเป็นบวก
         
         next_state = get_state(population, fitness_var_threshold)
         
