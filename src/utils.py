@@ -74,28 +74,26 @@ def decode_individual(individual, surgeries):
 
 # --- FITNESS FUNCTION ---
 def evaluate_fitness(OR_schedules, total_used_slots, total_slots, W_OVERTIME, W_IMBALANCE):
-    
     total_overtime = 0
     total_imbalance = 0
-    
-    # 1. คำนวณ Overtime
-    for or_id, final_slot_used in total_used_slots.items():
-        overtime = max(0, final_slot_used - total_slots)
-        total_overtime += overtime
 
-    # 2. คำนวณ Imbalance
+    all_ors = [or_id for ors in CLUSTER_TO_ORS.values() for or_id in ors]
+    num_ors = len(all_ors)
+
+    # Overtime
+    for or_id, final_slot_used in total_used_slots.items():
+        total_overtime += max(0, final_slot_used - total_slots)
+
+    # Imbalance
     for cluster_id, ors in CLUSTER_TO_ORS.items():
-        if len(ors) > 1: # มีมากกว่า 1 OR ใน cluster นี้
+        if len(ors) > 1:
             makespan_in_cluster = [total_used_slots.get(or_id, 0) for or_id in ors]
-            
-            if len(makespan_in_cluster) > 1 and np.sum(makespan_in_cluster) > 0:
-                std_dev = np.std(makespan_in_cluster)
-                total_imbalance += std_dev
-    
-    # 3. คำนวณ Fitness Score
-    overtime_penalty = total_overtime * W_OVERTIME
-    imbalance_penalty = total_imbalance * W_IMBALANCE
-    
-    fitness_score = overtime_penalty + imbalance_penalty
-    
+            total_imbalance += np.std(makespan_in_cluster)
+
+    # Normalization
+    max_possible_time = num_ors * total_slots
+    norm_overtime = total_overtime / max_possible_time
+    norm_imbalance = total_imbalance / total_slots
+
+    fitness_score = (norm_overtime * W_OVERTIME) + (norm_imbalance * W_IMBALANCE)
     return fitness_score
