@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import numpy as np 
 
 from config.ga_config import *
-from src.data_processor import load_dataset_kagglehub, parse_surgeries
+from src.data_processor import load_dataset, parse_surgeries
 from src.utils import slot_to_time
 from src.algorithms.ga_scheduler import run_ga_standard, run_ga_hybrid_q 
 
@@ -13,7 +13,7 @@ from src.algorithms.ga_scheduler import run_ga_standard, run_ga_hybrid_q
 @st.cache_data
 def load_data(slot_duration):
     """โหลดและประมวลผลข้อมูลเคสผ่าตัด"""
-    df = load_dataset_kagglehub()
+    df = load_dataset()
     surgeries = parse_surgeries(df, slot_duration, BUFFER_SLOTS) 
     return surgeries
 
@@ -100,7 +100,7 @@ if start_time_input and end_time_input:
     # 7.0, 15.0 ถูกแทนที่ด้วยค่าชั่วโมงจริง
     operating_time = (dt_start.hour + dt_start.minute/60, dt_end.hour + dt_end.minute/60)
 else:
-    total_slots = TOTAL_SLOTS
+    total_slots = TOTAL_SLOTS_PER_DAY
     operating_time = OPERATING_TIME
     
 

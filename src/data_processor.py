@@ -2,48 +2,60 @@ import pandas as pd
 import math
 import kagglehub
 from kagglehub import KaggleDatasetAdapter
-from config.ga_config import SERVICE_TO_CLUSTER, BUFFER_SLOTS
+from config.ga_config import SERVICE_TO_CLUSTER
+from pathlib import Path
 
-def load_dataset_kagglehub():
-    file_path = "2022_Q1_OR_Utilization.csv"
-    try:
-        # ดึงข้อมูลจริงจาก KaggleHub
-        df = kagglehub.load_dataset(
-            KaggleDatasetAdapter.PANDAS,
-            "thedevastator/optimizing-operating-room-utilization",
-            file_path,
-        )
-    except Exception:
-        print("Warning: Could not load data from KaggleHub. Ensure offline access or use data/ folder.")
-        return pd.DataFrame() 
+# Load dataset
+# ==========================================
+def load_dataset():
+    # การทดลองที่1: Kaggle Dataset
+    # file_path = "2022_Q1_OR_Utilization.csv"
+    # df = kagglehub.load_dataset(
+    #     KaggleDatasetAdapter.PANDAS,
+    #     "thedevastator/optimizing-operating-room-utilization",
+    #     file_path,
+    # )
 
-    # กรองข้อมูลสำหรับวันเดียว (01/03/22)
-    df_days = df[df['Date'] == '01/03/22']
-    return df_days
+    # การทดลองที่2: Thai Anesthesia Dataset
+    dataset_folder = Path("dataset")
+    df_file = dataset_folder / "Exp2_Anesthesia_Processed.csv"
+    df = pd.read_csv(df_file)
+    
+    return df
 
 
-def parse_surgeries(df, slot_duration, buffer_slots):
+def calculate_case_weights(df):
+    service_avg = df.groupby('Service')['Booked Time (min)'].mean()
+    max_avg = service_avg.max() if not service_avg.empty else 1
+    max_booked = df['Booked Time (min)'].max()
+    
+    weights = {}
+    for idx, row in df.iterrows():
+        time_score = row['Booked Time (min)'] / max_booked
+        comp_score = service_avg.get(row['Service'], 0.5) / max_avg
+        weights[idx] = round((0.7 * time_score) + (0.3 * comp_score), 4)
+    return weights
+
+
+def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS):
+    df = df.reset_index(drop=True) 
+    if 'Weight' in df.columns:  
+      case_weights = df['Weight'].to_dict()
+    else:
+      case_weights = calculate_case_weights(df)    
+
     surgeries = []
-    for _, row in df.iterrows():
-        try:
-            booked = int(row['Booked Time (min)'])
-            slots_needed = math.ceil(booked / slot_duration)
-            service = row['Service']
-            cluster = SERVICE_TO_CLUSTER.get(service, None)
-            
-            if cluster is None:
-                continue # ข้ามเคสที่ไม่มี Cluster
-
-            surgeries.append({
-                'Encounter ID': int(row['Encounter ID']),
-                'service': service,
-                'cluster': cluster,
-                'or_suite': int(row.get('OR Suite', 0)),
-                'booked_time': booked,
-                'slots_needed': slots_needed,
-                'buffer_slots': buffer_slots
-            })
-        except (ValueError, KeyError):
-            continue # ข้ามแถวที่มีข้อมูลไม่ถูกต้อง
-            
+    for idx, row in df.iterrows():
+        booked = int(row['Booked Time (min)'])
+        surgeries.append({
+            'Index': idx,
+            'Encounter ID': int(row['Encounter ID']),
+            'Service': row['Service'],
+            'cluster': SERVICE_TO_CLUSTER.get(row['Service']),
+            'booked_time': booked,
+            'slots_needed': math.ceil(booked / SLOT_DURATION_MIN),
+            'buffer_slots': BUFFER_SLOTS,
+            'Weight': case_weights.get(idx, 0.5),
+            'Original_Date': row['Date']
+        })
     return surgeries
