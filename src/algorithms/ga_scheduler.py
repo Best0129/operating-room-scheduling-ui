@@ -8,25 +8,31 @@ from config.ga_config import *
 
 # ----------------------------------------------------
 def initialize_q_table():
-    """Q-table: 2 States (High/Low Diversity) x 4 Actions"""
+    # Q-table: 2 States (High/Low) x 4 Actions
     return np.zeros((2, 4))
 
+
 def get_state(population, fitness_var_threshold):
-    """
-    กำหนด State จากความหลากหลาย (Diversity) ของ Population
-    State 0: High Diversity / State 1: Low Diversity
-    """
-    fitness_var = np.var([ind['fitness'] for ind in population])
-    return 0 if fitness_var > fitness_var_threshold else 1
-    # ถ้าค่าที่คำนวณได้มากกว่า เกณฑ์ = High Diversity (State 0)
-    # ถ้าน้อยกว่าหรือเท่ากับ = Low Diversity (State 1)
+    # ดึงค่า Fitness ทั้งหมดออกมา
+    fitness_values = [ind['fitness'] for ind in population if ind['fitness'] is not None]
+    if not fitness_values: return 1 # ถ้ายังไม่มีค่า ให้มองว่า Diversity ต่ำไว้ก่อน
+    
+    # คำนวณ CV = SD / Mean
+    mean_f = np.mean(fitness_values)
+    std_f = np.std(fitness_values)
+    cv = std_f / mean_f if mean_f != 0 else 0
+    
+    # State 0: High Diversity (ค้นหาต่อไป)
+    # State 1: Low Diversity (ติดหล่ม - ต้องทำ Mutation หนักๆ)
+    return 0 if cv > fitness_var_threshold else 1
+
 
 # Q-Action Mapping
 OPERATOR_MAP = {
     0: {'crossover': 'single', 'mutation_rate': 0.01}, # Single-point + low mutation
-    1: {'crossover': 'two', 'mutation_rate': 0.01},    # Two-point + low mutation
+    1: {'crossover': 'two',    'mutation_rate': 0.01}, # Two-point + low mutation
     2: {'crossover': 'single', 'mutation_rate': 0.10}, # Single-point + high mutation
-    3: {'crossover': 'two', 'mutation_rate': 0.10},    # Two-point + high mutation
+    3: {'crossover': 'two',    'mutation_rate': 0.10}, # Two-point + high mutation
 }
 
 
@@ -34,164 +40,117 @@ OPERATOR_MAP = {
 # CORE GA (ใช้ร่วมกัน)
 # ----------------------------------------------------
 
-def generate_initial_population(surgeries, pop_size):
+def generate_initial_population(surgeries, POP_SIZE, CLUSTER_TO_ORS):
     population = []
-    cluster_groups = defaultdict(list)
-    for i, s in enumerate(surgeries):
-        cluster_groups[s['cluster']].append(i) 
-
-    for _ in range(pop_size):
-        individual_order = [] 
-        individual_assigned_or = [] 
-        temp_assigned_or = {}
-
-        cluster_order = list(cluster_groups.keys())
-        random.shuffle(cluster_order)
-        
-        for cluster in cluster_order:
-            idxs = cluster_groups[cluster][:]
-            random.shuffle(idxs) 
-            possible_ors = CLUSTER_TO_ORS.get(cluster, None)
-            
-            for idx in idxs: 
-                if possible_ors:
-                    chosen_or = random.choice(possible_ors)
-                    temp_assigned_or[idx] = chosen_or 
-                individual_order.append(idx) 
-
-        for idx in individual_order:
-            individual_assigned_or.append(temp_assigned_or.get(idx, None))
-
-        population.append({
-            'order': individual_order, 
-            'assigned_or_list': individual_assigned_or, 
-            'fitness': None
-        })
+    for _ in range(POP_SIZE):
+        order = list(range(len(surgeries)))
+        random.shuffle(order)
+        assigned_or_list = [random.choice(CLUSTER_TO_ORS[surgeries[i]['cluster']]) for i in order]
+        population.append({'order': order, 'assigned_or_list': assigned_or_list, 'fitness': None})
     return population
 
+
 def tournament_selection(population, tournament_size, num_parents):
-    selected_parents = []
+    selected = []
     for _ in range(num_parents):
-        tournament = random.sample(population, tournament_size)
-        winner = min(tournament, key=lambda ind: ind['fitness'])
-        selected_parents.append(winner)
-    return selected_parents
+        candidates = random.sample(population, tournament_size)
+        selected.append(min(candidates, key=lambda ind: ind['fitness']))
+    return selected
 
 
 # ----------------------------------------------------
 # Crossover/Mutation OPERATORS (ตาม Action ที่จะให้ Q-Agent เลือก)
 # ----------------------------------------------------
-
 def crossover_single_point(parent1, parent2):
-    """จุดตัดเดียว (OX1)"""
-    p1_order = parent1['order']
-    p2_order = parent2['order']
+    # จุดตัดเดียว
+    p1_order, p2_order = parent1['order'], parent2['order']
+    p1_or, p2_or = parent1['assigned_or_list'], parent2['assigned_or_list']
     size = len(p1_order)
     
-    start, end = sorted(random.sample(range(size), 2)) # สุ่ม 2 จุด เพื่อเลือกช่วงกลาง
+    start, end = sorted(random.sample(range(size), 2))
     
-    # 1. Crossover 'order' (OX1)
+    # Crossover order
     offspring_order = [None] * size
-    offspring_order[start:end+1] = p1_order[start:end+1]
+    segment = p1_order[start:end+1]
+    offspring_order[start:end+1] = segment
     
-    fill_elements = [item for item in p2_order if item not in offspring_order]
+    segment_set = set(segment)
+    fill_elements = [item for item in p2_order if item not in segment_set]
     
-    fill_idx = end + 1
+    ptr = (end + 1) % size
     for item in fill_elements:
-        if fill_idx >= size:
-            fill_idx = 0 
-        offspring_order[fill_idx] = item
-        fill_idx += 1
+        offspring_order[ptr] = item
+        ptr = (ptr + 1) % size
         
-    # 2. Crossover 'assigned_or_list' (ใช้ Map-based approach)
-    p1_or = parent1['assigned_or_list']
-    p2_or = parent2['assigned_or_list']
-    offspring_or_map = {}
-    
-    for i in range(start, end + 1):
-        offspring_or_map[offspring_order[i]] = p1_or[p1_order.index(offspring_order[i])]
+    # Crossover assigned_or_list
+    # สร้าง Map จาก ID เคสไปที่ห้องผ่าตัดที่ถูกเลือกไว้
+    p1_map = {idx: r for idx, r in zip(p1_order, p1_or)}
+    p2_map = {idx: r for idx, r in zip(p2_order, p2_or)}
 
-    for item in fill_elements:
-        if item not in offspring_or_map:
-            offspring_or_map[item] = p2_or[p2_order.index(item)]
-    
-    offspring_assigned_or = [offspring_or_map[idx] for idx in offspring_order]
-
+    offspring_assigned_or = [
+        p1_map[offspring_order[i]] if start <= i <= end else p2_map[offspring_order[i]]
+        for i in range(size)
+    ]
     return {'order': offspring_order, 'assigned_or_list': offspring_assigned_or, 'fitness': None}
 
 
 def crossover_two_point(parent1, parent2):
-    """จุดตัดสองจุด (เลือก 2 ช่วง)"""
-    p1_order = parent1['order']
-    p2_order = parent2['order']
+    # จุดตัดสองจุด (เลือกช่วงหัวกับช่วงท้าย)
+    p1_order, p2_order = parent1['order'], parent2['order']
     size = len(p1_order)
     
-    # สุ่ม 2 จุดตัด (p1, p2) และเลือกช่วง [0:p1] และ [p2:] จาก P1
-    p1 = random.randint(1, size // 2)
-    p2 = random.randint(size // 2, size - 1)
+    # เลือก 2 ช่วงจาก P1 (หัวกับท้าย)
+    cp1 = random.randint(1, size // 2)
+    cp2 = random.randint(size // 2, size - 1)
     
     offspring_order = [None] * size
+    # เก็บส่วนหัวและท้ายจาก P1
+    offspring_order[:cp1] = p1_order[:cp1]
+    offspring_order[cp2:] = p1_order[cp2:]
     
-    # เลือกช่วง [0:p1] และ [p2:] จาก P1
-    offspring_order[:p1] = p1_order[:p1]
-    offspring_order[p2:] = p1_order[p2:]
+    # กรองตัวที่เหลือจาก P2
+    p1_segment_set = set(offspring_order) 
+    fill_elements = [item for item in p2_order if item not in p1_segment_set]
     
-    # เติมส่วนที่เหลือจาก P2
-    fill_elements = [item for item in p2_order if item not in offspring_order]
-    
-    fill_idx = p1 
+    ptr = 0
     for item in fill_elements:
-        offspring_order[fill_idx] = item
-        fill_idx += 1
+        while offspring_order[ptr] is not None:
+            ptr += 1
+        offspring_order[ptr] = item
 
-    # 2. Crossover 'assigned_or_list' (ใช้ Map-based approach)
-    offspring_or_map = {}
+    # Mapping ห้องผ่าตัด
+    p1_map = {idx: r for idx, r in zip(p1_order, parent1['assigned_or_list'])}
+    p2_map = {idx: r for idx, r in zip(p2_order, parent2['assigned_or_list'])}
     
-    # ORs จาก P1
-    for i in list(range(p1)) + list(range(p2, size)):
-        offspring_or_map[offspring_order[i]] = parent1['assigned_or_list'][p1_order.index(offspring_order[i])]
-
-    # ORs จาก P2 (เติมให้เต็ม)
-    for item in fill_elements:
-        if item not in offspring_or_map:
-            offspring_or_map[item] = parent2['assigned_or_list'][p2_order.index(item)]
-
-    offspring_assigned_or = [offspring_or_map[idx] for idx in offspring_order]
-
+    offspring_assigned_or = [
+        p1_map[offspring_order[i]] if (i < cp1 or i >= cp2) else p2_map[offspring_order[i]]
+        for i in range(size)
+    ]
     return {'order': offspring_order, 'assigned_or_list': offspring_assigned_or, 'fitness': None}
 
 
 def mutate_with_rate(individual, surgeries, rate):
-    """Mutation Logic ที่รับ Rate เข้ามาใช้ในการควบคุม"""
-    mutated_individual = copy.deepcopy(individual) 
-    order = mutated_individual['order']
-    or_list = mutated_individual['assigned_or_list']
-    size = len(order)
+    new_order = individual['order'][:]
+    new_or_list = individual['assigned_or_list'][:]
+    size = len(new_order)
     
-    # 1. Mutation: Order (Swap Mutation)
+    # Swap Mutation
     if random.random() < rate:
-        idx1, idx2 = random.sample(range(size), 2)
-        order[idx1], order[idx2] = order[idx2], order[idx1]
-        or_list[idx1], or_list[idx2] = or_list[idx2], or_list[idx1] 
+        i, j = random.sample(range(size), 2)
+        new_order[i], new_order[j] = new_order[j], new_order[i]
+        new_or_list[i], new_or_list[j] = new_or_list[j], new_or_list[i] 
 
-
-    # 2. Mutation: Assignment (Random OR Reassignment)
+    # Assignment Mutation (ลองเปลี่ยนห้อง)
     if random.random() < rate:
-        mut_idx = random.randrange(size)
-        case_index = order[mut_idx]
-        case_cluster = surgeries[case_index]['cluster']
-
-        if case_cluster and case_cluster in CLUSTER_TO_ORS:
-            possible_ors = CLUSTER_TO_ORS[case_cluster]
-
-            if len(possible_ors) > 1:
-                current_or = or_list[mut_idx]
-                available_ors = [or_id for or_id in possible_ors if or_id != current_or]
-                
-                if available_ors:
-                    or_list[mut_idx] = random.choice(available_ors)
+        # สุ่มแก้ 5 จุดพร้อมกัน
+        for _ in range(5):
+            mut_idx = random.randrange(size)
+            case_idx = new_order[mut_idx]
+            case_cluster = surgeries[case_idx]['cluster']
+            if case_cluster in CLUSTER_TO_ORS:
+                new_or_list[mut_idx] = random.choice(CLUSTER_TO_ORS[case_cluster])
     
-    return mutated_individual
+    return {'order': new_order, 'assigned_or_list': new_or_list, 'fitness': None}
 
 
 # ----------------------------------------------------
