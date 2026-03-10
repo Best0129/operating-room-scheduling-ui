@@ -17,7 +17,7 @@ def load_dataset():
     # )
 
     # การทดลองที่2: Thai Anesthesia Dataset
-    dataset_folder = Path("dataset")
+    dataset_folder = Path("data")
     df_file = dataset_folder / "Exp2_Anesthesia_Processed.csv"
     df = pd.read_csv(df_file)
     
