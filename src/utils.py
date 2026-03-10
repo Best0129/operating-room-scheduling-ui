@@ -13,87 +13,75 @@ def slot_to_time(slot_number, OPERATING_TIME, SLOT_DURATION_MIN):
     return final_dt.strftime("%H:%M")
 
 # --- DECODE FUNCTION ---
-def decode_individual(individual, surgeries):
-    OR_schedules = defaultdict(list)
-    # current_or_slots = defaultdict(lambda: total_slots) 
-
-    order = individual.get("order", [])
-    assigned_or_list = individual.get("assigned_or_list", [])
-
-    # วนลูปตามลำดับของเคสใน 'order' Array
-    for i, idx in enumerate(order):
-        # i คือตำแหน่งใน Array ซึ่งใช้ในการดึง OR Suite ID จาก assigned_or_list
-        # idx คือ Case Index (0 ถึง N-1)
-        
+def decode_individual(individual, surgeries, ALL_OR_IDS, TOTAL_SLOTS_PER_DAY, BUFFER_SLOTS):
+    # OR_schedules จะเก็บข้อมูลแยกเป็นรายวัน เพื่อให้คำนวณ Penalty รายวันได้
+    # โครงสร้าง: { day_index: { or_id: [case1, case2, ...] } }
+    OR_schedules = defaultdict(lambda: defaultdict(list))    
+    room_status = {or_id: {'day': 0, 'clock': 0} for or_id in ALL_OR_IDS}
+    
+    for i, idx in enumerate(individual['order']):
         surgery = surgeries[idx]
-        cluster = surgery.get('cluster', None)
-
-        # ใช้ OR ที่ assigned ไว้แล้ว (ดึงจาก assigned_or_list โดยใช้ตำแหน่ง i)
-        or_id = assigned_or_list[i] if i < len(assigned_or_list) else None
-
-        if or_id is None:
-            # Fallback (ควรเกิดขึ้นน้อยมากถ้า generate_initial_population ทำงานถูก)
-            if cluster in CLUSTER_TO_ORS:
-                or_id = random.choice(CLUSTER_TO_ORS[cluster])
-            else:
-                # ใช้ OR Suite ที่กำหนดไว้ในข้อมูลตั้งต้น
-                or_id = surgery.get('or_suite') 
+        or_id = individual['assigned_or_list'][i]
         
-        timeline = OR_schedules[or_id]
-        if not timeline:
-            start_slot = 0
-        else:
-            # บวก buffer slot จากเคสก่อนหน้า
-            start_slot = timeline[-1]['end_slot'] + surgery['buffer_slots'] 
-
-        end_slot = start_slot + surgery['slots_needed']
-
-        # if end_slot > current_or_slots[or_id]: # ถ้าเกิน slot ที่กำหนดไว้
-        #     current_or_slots[or_id] = end_slot # ขยาย slot ที่ใช้ได้ใน OR นั้น
-
-        OR_schedules[or_id].append({
+        # ดึงสถานะปัจจุบันของห้องที่ถูกเลือก
+        curr_day = room_status[or_id]['day']
+        curr_clock = room_status[or_id]['clock']
+        
+        # คำนวณจุดเริ่มต้น (ต้องมี Buffer ถ้าไม่ใช่เคสแรกของวัน)
+        start_slot = curr_clock
+        if start_slot > 0: 
+            start_slot += BUFFER_SLOTS
+            
+        # คำนวณจุดสิ้นสุดที่เป็นไปได้ ถ้าจัดลงใน วันนี้
+        # ถ้าจัดลงไปแล้วเกินเวลาทำการปกติ (TOTAL_SLOTS_PER_DAY) ให้ไปเริ่มเช้าวันใหม่
+        potential_end = start_slot + surgery['slots_needed']
+        if potential_end > TOTAL_SLOTS_PER_DAY:
+            curr_day += 1      # ขยับไปวันถัดไป
+            start_slot = 0     # เริ่มที่ Slot 0 (7:00 น.)
+            potential_end = surgery['slots_needed']
+            
+        OR_schedules[curr_day][or_id].append({
             'Encounter ID': surgery['Encounter ID'],
-            'Service': surgery['service'],
-            'Cluster': cluster,
-            'OR Suite': surgery['or_suite'],
-            'Assigned OR': or_id, # เพิ่ม Assigned OR
-            'start_slot': start_slot,
-            'end_slot': end_slot,
-            'slots_used': surgery['slots_needed'],
             'booked_time': surgery['booked_time'],
-            'buffer_slot': surgery['buffer_slots']
+            'Weight': surgery['Weight'],
+            'start_slot': start_slot,
+            'end_slot': potential_end,
+            'day': curr_day
         })
-
-    # คำนวณ slot สุดท้ายที่ใช้ในแต่ละ OR
-    total_used_slots = {
-        or_id: (schedule[-1]['end_slot'] if schedule else 0)
-        for or_id, schedule in OR_schedules.items()
-    }
-
-    return OR_schedules, total_used_slots
+        
+        room_status[or_id]['day'] = curr_day
+        room_status[or_id]['clock'] = potential_end
+    return OR_schedules, room_status
 
 # --- FITNESS FUNCTION ---
-def evaluate_fitness(OR_schedules, total_used_slots, total_slots, W_OVERTIME, W_IMBALANCE):
-    total_overtime = 0
-    total_imbalance = 0
+def evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERTIME, W_IMBALANCE):
+    weighted_overtime = 0
+    total_finish_slots = [] 
 
-    all_ors = [or_id for ors in CLUSTER_TO_ORS.values() for or_id in ors]
-    num_ors = len(all_ors)
+    # คำนวณเวลาจบงานของแต่ละห้อง
+    for or_id, status in room_status.items():
+        # Global Slot = (day * total_slot) + slot ที่จบในวันนั้น
+        finish_at = (status['day'] * TOTAL_SLOTS) + status['clock']
+        total_finish_slots.append(finish_at)
+    # Makespan เวลาที่เคสสุดท้ายของทั้งชุดข้อมูลทั้งหมดทำเสร็จ
+    global_makespan = max(total_finish_slots) 
+    
+    # Imbalance ความต่างของเวลาจบงานของแต่ละห้อง (SD)
+    global_imbalance = np.std(total_finish_slots)
 
-    # Overtime
-    for or_id, final_slot_used in total_used_slots.items():
-        total_overtime += max(0, final_slot_used - total_slots)
+    # คำนวณ Overtime จากทุกวัน
+    for day in OR_schedules:
+        for or_id, cases in OR_schedules[day].items():
+            for case in cases:
+                if case['end_slot'] > TOTAL_SLOTS:
+                    overlap = case['end_slot'] - max(TOTAL_SLOTS, case['start_slot'])
+                    weighted_overtime += overlap * case.get('Weight', 0.5)
 
-    # Imbalance
-    for cluster_id, ors in CLUSTER_TO_ORS.items():
-        if len(ors) > 1:
-            makespan_in_cluster = [total_used_slots.get(or_id, 0) for or_id in ors]
-            total_imbalance += np.std(makespan_in_cluster)
+    # Normalization (ปรับค่าให้อยู่ในสเกล 0-1 เพื่อคูณกับ Weight)
+    norm_makespan = global_makespan / (60 * TOTAL_SLOTS) 
+    norm_overtime = weighted_overtime / (len(room_status) * TOTAL_SLOTS)
+    norm_imbalance = global_imbalance / TOTAL_SLOTS
 
-    # Normalization
-    max_possible_time = num_ors * total_slots
-    norm_overtime = total_overtime / max_possible_time
-    norm_imbalance = total_imbalance / total_slots
-
-    fitness_score = (norm_overtime * W_OVERTIME) + (norm_imbalance * W_IMBALANCE)
+    fitness_score = (norm_makespan * W_MAKESPAN) + (norm_overtime * W_OVERTIME) + (norm_imbalance * W_IMBALANCE)
+    # คะแนนรวม (ยิ่งน้อยยิ่งดี)
     return fitness_score
