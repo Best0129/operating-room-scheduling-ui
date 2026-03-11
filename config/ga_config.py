@@ -45,60 +45,30 @@ FITNESS_VAR_THRESHOLD_FACTOR = 0.05
 # =====================================================
 # 4. MAPPING AND CONSTRAINTS
 # =====================================================
-# ชุดข้อมูลที่ 1
-SERVICE_TO_CLUSTER = {
-    'ENT': 'B', 'General': 'A', 'OBGYN': 'B', 'Ophthalmology': 'C',
-    'Orthopedics': 'A', 'Pediatrics': 'C', 'Plastic': 'E',
-    'Podiatry': 'D', 'Urology': 'B', 'Vascular': 'C'
-}
-
-CLUSTER_TO_ORS = {
-    'A': [2, 8],  # Orthopedics, General
-    'B': [4, 5],  # OBGYN, Urology, ENT
-    'C': [3, 7],  # Ophthalmology, Pediatrics, Vascular
-    'D': [1],     # Podiatry
-    'E': [6]      # Plastic
-}
-
-ALL_OR_IDS = [or_id for ors in CLUSTER_TO_ORS.values() for or_id in ors]
-
-
-# ===================================================== 
-# ชุดข้อมูลที่ 2 Experiment 2: Thai Anesthesia Dataset
-# SERVICE_TO_CLUSTER = {
-#     # Cluster A
-#     'GA c ETT/TT': 'A', 
-#     'Combined [ETT+NB]': 'A', 
-#     'Combined [ETT+SB]': 'A',
-    
-#     # Cluster B
-#     'Spinal Block': 'B', 
-#     'SB': 'B', 
-#     'Nerve Block': 'B', 
-#     'Epidural Block': 'B', 
-#     'RA [Spinal block+Nerve block]': 'B',
-    
-#     # Cluster C
-#     'GA c LMA': 'C', 
-#     'GA c mask': 'C', 
-#     'Combined [LMA+NB]': 'C', 
-#     'SB, LMA': 'C',
-    
-#     # Cluster D
-#     'IV/TIVA': 'D', 
-#     'MAC': 'D', 
-#     'Fail block': 'D', 
-#     '-': 'D'
-# }
-
-# CLUSTER_TO_ORS = {
-#     'A': [601, 602, 603, 604],
-    
-#     'B': [605, 606, 607, 608],
-    
-#     'C': [801, 803, 804, 805],
-    
-#     'D': [806, 807, 808, 701, ' จิตเวช']
-# }
-
-# ALL_OR_IDS = [or_id for ors in CLUSTER_TO_ORS.values() for or_id in ors]
+CONFIGS = {
+    "Experiment 1 (Kaggle)": {
+        "SERVICE_TO_CLUSTER": {
+            'ENT': 'B', 'General': 'A', 'OBGYN': 'B', 'Ophthalmology': 'C',
+            'Orthopedics': 'A', 'Pediatrics': 'C', 'Plastic': 'E',
+            'Podiatry': 'D', 'Urology': 'B', 'Vascular': 'C'
+        },
+        "CLUSTER_TO_ORS": {
+            'A': [2, 8], 'B': [4, 5], 'C': [3, 7], 'D': [1], 'E': [6]
+        }
+    },
+    "Experiment 2 (Anesthesia)": {
+        "SERVICE_TO_CLUSTER": {
+            'GA c ETT/TT': 'A', 'Combined [ETT+NB]': 'A', 'Combined [ETT+SB]': 'A',
+            'Spinal Block': 'B', 'SB': 'B', 'Nerve Block': 'B', 'Epidural Block': 'B', 
+            'RA [Spinal block+Nerve block]': 'B',
+            'GA c LMA': 'C', 'GA c mask': 'C', 'Combined [LMA+NB]': 'C', 'SB, LMA': 'C',
+            'IV/TIVA': 'D', 'MAC': 'D', 'Fail block': 'D', '-': 'D'
+        },
+        "CLUSTER_TO_ORS": {
+            'A': [601, 602, 603, 604],
+            'B': [605, 606, 607, 608],
+            'C': [801, 803, 804, 805],
+            'D': [806, 807, 808, 701, ' จิตเวช']
+        }
+    }
+} 
