@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import numpy as np 
+import time
 from collections import defaultdict
 
 from config.ga_config import *
@@ -130,46 +131,40 @@ if run_button:
     if not surgeries_list:
         st.error("ไม่พบข้อมูลสำหรับการรัน!")
     else:
+        # เริ่มจับเวลา
+        start_time_exec = time.time()
+        
+        progress_bar = st.progress(0)
         with st.spinner(f"กำลังประมวลผลด้วย {algorithm_selection}..."):
-            progress_bar = st.progress(0)
-            
-            # ดึง ID ห้องผ่าตัดทั้งหมดจาก Config ตามโหมดที่เลือก
             all_or_ids = [or_id for ors in CONFIGS[exp_mode]["CLUSTER_TO_ORS"].values() for or_id in ors]
             
             if algorithm_selection == "ST Baseline (Greedy)":
                 sched, status = run_ST(surgeries_list, total_slots, BUFFER_SLOTS, exp_mode)
-                # สร้าง history เทียมสำหรับการพล็อต (เพราะ ST รันรอบเดียว)
-                penalty = evaluate_fitness(sched, status, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
-                history = [penalty]
-                best_ind = {'fitness': penalty}
+                history = [evaluate_fitness(sched, status, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)]
+                best_ind = {'fitness': history[0]}
                 progress_bar.progress(100)
-            
             elif algorithm_selection == "Standard GA":
                 best_ind, history, sched, status = run_ga_standard(
                     surgeries_list, num_generations, pop_size, total_slots, exp_mode, progress_bar
                 )
-            
             else: # Hybrid GA-Q
                 best_ind, history, sched, status = run_ga_hybrid_q(
                     surgeries_list, num_generations, pop_size, total_slots, exp_mode, progress_bar
                 )
             
-            # คำนวณตัวชี้วัดประสิทธิภาพ (Metrics)
-            metrics = calculate_metrics(sched, status, total_slots, input_slot_duration, all_or_ids, surgeries_list, exp_mode)
+            # คำนวณ Runtime [cite: 2026-03-01]
+            runtime_seconds = time.time() - start_time_exec
             
-            # บันทึกผลลัพธ์ลง Session State
+            # คำนวณ Metrics พร้อมค่า Lower Bound และ Gap
+            metrics = calculate_metrics(sched, status, total_slots, input_slot_duration, all_or_ids, surgeries_list, exp_mode)
+            metrics['Runtime_Sec'] = round(runtime_seconds, 2)
+            
             st.session_state.results = {
-                'sched': sched,
-                'status': status,
-                'history': history,
-                'metrics': metrics,
-                'mode': exp_mode,
-                'algo': algorithm_selection,
-                'op_time': operating_time,
-                'slot_dur': input_slot_duration,
-                'total_slots': total_slots
+                'sched': sched, 'status': status, 'history': history,
+                'metrics': metrics, 'mode': exp_mode, 'algo': algorithm_selection,
+                'op_time': operating_time, 'slot_dur': input_slot_duration, 'total_slots': total_slots
             }
-        st.success(f"✅ คำนวณเสร็จสิ้น! Penalty Score ที่ดีที่สุด: {metrics['Penalty_Score']}")
+        st.success(f"✅ คำนวณเสร็จสมบูรณ์! (ใช้เวลา: {metrics['Runtime_Sec']} วินาที)")
 
 # =================================================================
 # ส่วนแสดงผลลัพธ์ (Result Visualization)
@@ -179,16 +174,21 @@ if st.session_state.results:
     res = st.session_state.results
     m = res['metrics']
     
-    # 1. Metrics Summary Cards
-    st.divider()
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    col_m1.metric("🗓️ จำนวนวันที่ใช้", f"{m['Total_Days']} วัน")
-    col_m2.metric("📊 Utilization", f"{m['Global_Util (%)']}%")
-    col_m3.metric("🕒 Overtime รวม", f"{m['Total_OT_Min']} นาที")
-    col_m4.metric("📉 Penalty Score", f"{m['Penalty_Score']}")
+    st.header(f"📊 รายงานผลการทดสอบ: {res['algo']}")
+    
+    # สร้างการแสดงผล 2 แถวเพื่อให้รองรับ Metrics ที่เพิ่มขึ้น
+    row1_c1, row1_c2, row1_c3 = st.columns(3)
+    row1_c1.metric("🗓️ จำนวนวันที่ใช้จริง", f"{m['Total_Days']} วัน", delta=f"Lower Bound: {m['Lower_Bound_Days']} วัน", delta_color="inverse")
+    row1_c2.metric("🎯 Optimality Gap", f"{m['Optimality_Gap (%)']}%")
+    row1_c3.metric("📊 Utilization", f"{m['Global_Util (%)']}%")
+    
+    row2_c1, row2_c2, row2_c3 = st.columns(3)
+    row2_c1.metric("🕒 Total Overtime", f"{m['Total_OT_Min']} นาที")
+    row2_c2.metric("⚡ Runtime", f"{m['Runtime_Sec']} s")
+    row2_c3.metric("📉 Penalty Score", f"{m['Penalty_Score']}")
 
     # 2. Tabs สำหรับรายละเอียด
-    tab_sched, tab_graph, tab_download = st.tabs(["📅 ตารางการจัดเวลา (Schedule)", "📈 กราฟการเรียนรู้", "📥 ส่งออกข้อมูล"])
+    tab_sched, tab_graph, tab_download = st.tabs(["📅 ตารางการจัดเวลา (Schedule)", "📈 กราฟการเรียนรู้", "📥 บันทึกข้อมูล"])
     
     with tab_sched:
         # แสดงผลแยกรายวัน

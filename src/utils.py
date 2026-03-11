@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import math
 from datetime import datetime, timedelta
 from collections import defaultdict
 # from config.ga_config import CLUSTER_TO_ORS
@@ -119,36 +120,44 @@ def calculate_metrics(OR_schedules, room_status, TOTAL_SLOTS, SLOT_DURATION_MIN,
     total_booked_min = sum(s['booked_time'] for s in surgeries)
     num_rooms = len(ALL_OR_IDS)
     
-    # คำนวณ Makespan (จำนวนวันที่ใช้จริง)
     if not room_status:
         return {}
         
+    # 1. คำนวณ Makespan (จำนวนวันที่ใช้)
     max_day_idx = max(status['day'] for status in room_status.values())
     total_days_used = max_day_idx + 1 
     
-    # คำนวณ Total Overtime (นาที)
+    # 2. คำนวณ Theoretical Lower Bound (จำนวนวันที่น้อยที่สุดที่เป็นไปได้ตามทฤษฎี)
+    # สูตร: ผลรวมเวลาผ่าตัดทั้งหมด / ความจุรวมของห้องผ่าตัดทุกห้องใน 1 วัน
+    daily_capacity_per_room = TOTAL_SLOTS * SLOT_DURATION_MIN
+    total_daily_capacity = num_rooms * daily_capacity_per_room
+    lb_days = math.ceil(total_booked_min / total_daily_capacity)
+    
+    # 3. คำนวณ Optimality Gap (%)
+    # ยิ่งเข้าใกล้ 0% ยิ่งแสดงว่าจัดได้แน่นใกล้เคียงกับทางทฤษฎี
+    gap_percent = ((total_days_used - lb_days) / lb_days) * 100 if lb_days > 0 else 0
+    
+    # 4. คำนวณ Total Overtime (นาที)
     total_ot_min = 0
     for day in OR_schedules:
         for or_id in OR_schedules[day]:
             for case in OR_schedules[day][or_id]:
-                # ตรวจสอบ Overtime โดยเทียบกับ TOTAL_SLOTS
                 if case['end_slot'] > TOTAL_SLOTS:
                     ot_slots = case['end_slot'] - max(TOTAL_SLOTS, case['start_slot'])
                     total_ot_min += ot_slots * SLOT_DURATION_MIN
                     
-    # คำนวณ Utilization (%)
-    # สูตร: (เวลาผ่าตัดรวม) / (ความจุทั้งหมดของห้องที่เปิดใช้ตามจำนวนวันที่ใช้)
-    total_capacity_min = num_rooms * total_days_used * TOTAL_SLOTS * SLOT_DURATION_MIN
+    # 5. คำนวณ Utilization (%)
+    total_capacity_min = num_rooms * total_days_used * daily_capacity_per_room
     global_util = (total_booked_min / total_capacity_min) * 100 if total_capacity_min > 0 else 0
     
-    # ดึง Penalty Score (Fitness) มาสรุป
     from config.ga_config import W_MAKESPAN, W_OVERTIME, W_IMBALANCE
     penalty = evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
 
     return {
         'Total_Days': int(total_days_used),
+        'Lower_Bound_Days': int(lb_days),
+        'Optimality_Gap (%)': round(gap_percent, 2),
         'Global_Util (%)': round(global_util, 2),
         'Total_OT_Min': int(total_ot_min),
-        'Total_Booked_Min': int(total_booked_min),
         'Penalty_Score': round(penalty, 4)
     }
