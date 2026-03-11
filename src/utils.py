@@ -2,7 +2,7 @@ import numpy as np
 import random
 from datetime import datetime, timedelta
 from collections import defaultdict
-from config.ga_config import CLUSTER_TO_ORS
+# from config.ga_config import CLUSTER_TO_ORS
 
 # --- TIME CONVERSION ---
 def slot_to_time(slot_number, OPERATING_TIME, SLOT_DURATION_MIN):
@@ -113,3 +113,42 @@ def evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERT
                     (norm_priority * W_PRIORITY)
                     
     return fitness_score
+
+
+def calculate_metrics(OR_schedules, room_status, TOTAL_SLOTS, SLOT_DURATION_MIN, ALL_OR_IDS, surgeries, mode):
+    total_booked_min = sum(s['booked_time'] for s in surgeries)
+    num_rooms = len(ALL_OR_IDS)
+    
+    # คำนวณ Makespan (จำนวนวันที่ใช้จริง)
+    if not room_status:
+        return {}
+        
+    max_day_idx = max(status['day'] for status in room_status.values())
+    total_days_used = max_day_idx + 1 
+    
+    # คำนวณ Total Overtime (นาที)
+    total_ot_min = 0
+    for day in OR_schedules:
+        for or_id in OR_schedules[day]:
+            for case in OR_schedules[day][or_id]:
+                # ตรวจสอบ Overtime โดยเทียบกับ TOTAL_SLOTS
+                if case['end_slot'] > TOTAL_SLOTS:
+                    ot_slots = case['end_slot'] - max(TOTAL_SLOTS, case['start_slot'])
+                    total_ot_min += ot_slots * SLOT_DURATION_MIN
+                    
+    # คำนวณ Utilization (%)
+    # สูตร: (เวลาผ่าตัดรวม) / (ความจุทั้งหมดของห้องที่เปิดใช้ตามจำนวนวันที่ใช้)
+    total_capacity_min = num_rooms * total_days_used * TOTAL_SLOTS * SLOT_DURATION_MIN
+    global_util = (total_booked_min / total_capacity_min) * 100 if total_capacity_min > 0 else 0
+    
+    # ดึง Penalty Score (Fitness) มาสรุป
+    from config.ga_config import W_MAKESPAN, W_OVERTIME, W_IMBALANCE
+    penalty = evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
+
+    return {
+        'Total_Days': int(total_days_used),
+        'Global_Util (%)': round(global_util, 2),
+        'Total_OT_Min': int(total_ot_min),
+        'Total_Booked_Min': int(total_booked_min),
+        'Penalty_Score': round(penalty, 4)
+    }
