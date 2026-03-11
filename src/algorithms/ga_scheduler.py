@@ -55,7 +55,7 @@ def generate_initial_population(surgeries, POP_SIZE, CLUSTER_TO_ORS):
         for i in order:
             target_cluster = surgeries[i].get('cluster')
             
-            # ตรวจสอบความถูกต้องของ Cluster ตามที่คุณเขียนมา [cite: 2026-03-01, 2026-03-10]
+            # ตรวจสอบความถูกต้องของ Cluster ตามที่คุณเขียนมา
             if target_cluster in CLUSTER_TO_ORS and CLUSTER_TO_ORS[target_cluster]:
                 assigned_or_list.append(random.choice(CLUSTER_TO_ORS[target_cluster]))
             else:
@@ -86,7 +86,7 @@ def tournament_selection(population, tournament_size, num_parents):
         candidates = random.sample(population, actual_size)
         
         # เลือกตัวที่เก่งที่สุด (Fitness น้อยที่สุด = Penalty ต่ำที่สุด)
-        # เนื่องจากงานของเราเป็นการลด Penalty (Minimization Problem) [cite: 2026-03-01]
+        # เนื่องจากงานของเราเป็นการลด Penalty (Minimization Problem)
         best_candidate = min(candidates, key=lambda ind: ind['fitness'])
         selected.append(best_candidate)
         
@@ -97,10 +97,6 @@ def tournament_selection(population, tournament_size, num_parents):
 # Crossover/Mutation OPERATORS (ตาม Action ที่จะให้ Q-Agent เลือก)
 # ----------------------------------------------------
 def crossover_single_point(parent1, parent2):
-    """
-    Order Crossover (OX): รักษาลำดับของงานผ่าตัดและห้องผ่าตัดที่ได้รับมอบหมาย
-    เหมาะสำหรับทั้ง Experiment 1 และ 2 [cite: 2026-03-01]
-    """
     p1_order, p2_order = parent1['order'], parent2['order']
     p1_or, p2_or = parent1['assigned_or_list'], parent2['assigned_or_list']
     size = len(p1_order)
@@ -127,7 +123,7 @@ def crossover_single_point(parent1, parent2):
         ptr = (ptr + 1) % size
         
     # 4. จัดการส่วน 'assigned_or_list' (Mapping Logic)
-    # สร้าง Map เพื่อจำว่า ID ผ่าตัดนี้ เดิมที Parent แต่ละคนให้ไปอยู่ห้องไหน [cite: 2026-03-10]
+    # สร้าง Map เพื่อจำว่า ID ผ่าตัดนี้ เดิมที Parent แต่ละคนให้ไปอยู่ห้องไหน
     p1_map = {case_idx: room_id for case_idx, room_id in zip(p1_order, p1_or)}
     p2_map = {case_idx: room_id for case_idx, room_id in zip(p2_order, p2_or)}
 
@@ -147,10 +143,6 @@ def crossover_single_point(parent1, parent2):
 
 
 def crossover_two_point(parent1, parent2):
-    """
-    Two-point Crossover (OX variant): รับส่วนหัวและท้ายจาก P1 
-    และเติมส่วนกลางด้วยลำดับที่เหลือจาก P2
-    """
     p1_order, p2_order = parent1['order'], parent2['order']
     p1_or, p2_or = parent1['assigned_or_list'], parent2['assigned_or_list']
     size = len(p1_order)
@@ -181,7 +173,7 @@ def crossover_two_point(parent1, parent2):
         if ptr < size:
             offspring_order[ptr] = item
 
-    # 4. Mapping ห้องผ่าตัด (รักษา Cluster Constraints) [cite: 2026-03-10]
+    # 4. Mapping ห้องผ่าตัด
     p1_map = {idx: r for idx, r in zip(p1_order, p1_or)}
     p2_map = {idx: r for idx, r in zip(p2_order, p2_or)}
     
@@ -198,10 +190,6 @@ def crossover_two_point(parent1, parent2):
 
 
 def mutate_with_rate(individual, surgeries, rate, CLUSTER_TO_ORS):
-    """
-    Mutation: เพิ่มความหลากหลายให้กับประชากร
-    รองรับทั้งการสลับลำดับและการเปลี่ยนห้องผ่าตัดตามเงื่อนไขของแต่ละ Dataset [cite: 2026-03-01]
-    """
     new_order = individual['order'][:]
     new_or_list = individual['assigned_or_list'][:]
     size = len(new_order)
@@ -215,7 +203,7 @@ def mutate_with_rate(individual, surgeries, rate, CLUSTER_TO_ORS):
         new_order[i], new_order[j] = new_order[j], new_order[i]
         new_or_list[i], new_or_list[j] = new_or_list[j], new_or_list[i] 
 
-    # 2. Assignment Mutation: สุ่มเปลี่ยนห้องผ่าตัด (ยังคงรักษาเงื่อนไข Cluster) [cite: 2026-03-10]
+    # 2. Assignment Mutation: สุ่มเปลี่ยนห้องผ่าตัด (ยังคงรักษาเงื่อนไข Cluster)
     if random.random() < rate:
         # ปรับจำนวนจุดที่แก้ตามขนาดข้อมูล (ประมาณ 5% ของจำนวนเคส หรืออย่างน้อย 1 จุด)
         num_mutations = max(1, int(size * 0.05))
@@ -241,10 +229,7 @@ def mutate_with_rate(individual, surgeries, rate, CLUSTER_TO_ORS):
 # ----------------------------------------------------
 
 def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, st_progress=None):
-    """
-    Standard GA: รันการจัดตารางแบบมาตรฐาน รองรับ 2 ชุดข้อมูลและ Streamlit UI [cite: 2026-03-07]
-    """
-    # 1. ดึงค่า Config เฉพาะของโหมดนั้นๆ มาเตรียมไว้ [cite: 2026-03-01]
+    # 1. ดึงค่า Config เฉพาะของโหมดนั้นๆ มาเตรียมไว้
     current_cfg = CONFIGS[mode]
     cluster_mapping = current_cfg["CLUSTER_TO_ORS"]
     all_or_ids = [or_id for ors in cluster_mapping.values() for or_id in ors]
@@ -254,11 +239,11 @@ def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, st_progress
     
     # 3. Initial Evaluation
     for individual in population:
-        # แก้ไขการรับค่าจาก decode_individual (คืนค่า sched และ status) [cite: 2026-03-07]
+        # แก้ไขการรับค่าจาก decode_individual (คืนค่า sched และ status) 
         OR_schedules, room_status = decode_individual(
             individual, surgeries, all_or_ids, total_slots, BUFFER_SLOTS
         )
-        # คำนวณ Fitness (ส่ง room_status และ Weights ให้ครบถ้วน) [cite: 2026-03-01]
+        # คำนวณ Fitness (ส่ง room_status และ Weights ให้ครบถ้วน)
         individual['fitness'] = evaluate_fitness(
             OR_schedules, room_status, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE
         ) 
@@ -266,7 +251,7 @@ def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, st_progress
     best_fitness_history = []
     
     # 4. EVOLUTIONARY CYCLE
-    # เปลี่ยนจาก tqdm เป็น range ปกติเพื่อใช้ st_progress บน UI [cite: 2026-03-07]
+    # เปลี่ยนจาก tqdm เป็น range ปกติเพื่อใช้ st_progress บน UI 
     for gen in range(num_gen):
         population.sort(key=lambda ind: ind['fitness'])
         
@@ -289,7 +274,7 @@ def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, st_progress
                 offspring = copy.deepcopy(parent1)
             
             # --- Mutation (Fixed Rate) ---
-            # แก้ไข: ส่ง cluster_mapping เข้าไปด้วยเพื่อให้สุ่มห้องได้ถูกต้องตาม Dataset [cite: 2026-03-10]
+            # แก้ไข: ส่ง cluster_mapping เข้าไปด้วยเพื่อให้สุ่มห้องได้ถูกต้องตาม Dataset
             offspring = mutate_with_rate(offspring, surgeries, MUTATION_RATE, cluster_mapping) 
             
             # --- Evaluation ของลูกที่เกิดใหม่ ---
@@ -307,7 +292,7 @@ def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, st_progress
         current_best = min(population, key=lambda ind: ind['fitness'])
         best_fitness_history.append(current_best['fitness'])
 
-        # ส่วนอัปเดต UI Progress Bar [cite: 2026-03-07]
+        # ส่วนอัปเดต UI Progress Bar 
         if st_progress:
             st_progress.progress((gen + 1) / num_gen)
 
@@ -321,10 +306,6 @@ def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, st_progress
 
 
 def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, st_progress=None):
-    """
-    Hybrid GA-Q: ใช้ Q-Learning ในการเลือก Operator ให้เหมาะสมกับสถานะประชากร
-    รองรับ Experiment 1 & 2 และการแสดงผลบน Streamlit
-    """
     # 1. เตรียมค่า Config ตามโหมดการทดลอง
     current_cfg = CONFIGS[mode]
     cluster_mapping = current_cfg["CLUSTER_TO_ORS"]
@@ -337,7 +318,7 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, st_progress
     
     # 3. Initial Evaluation
     for individual in population:
-        # ใช้ decode และ evaluate เวอร์ชั่นใหม่ [cite: 2026-03-07]
+        # ใช้ decode และ evaluate เวอร์ชั่นใหม่ 
         OR_schedules, room_status = decode_individual(
             individual, surgeries, all_or_ids, total_slots, BUFFER_SLOTS
         )
@@ -359,7 +340,7 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, st_progress
         # --- Q-LEARNING: สังเกตสถานะและเลือก Action ---
         current_state = get_state(population, fitness_var_threshold)
         
-        # ε-greedy Strategy: เลือก Action เพื่อ Explore หรือ Exploit [cite: 2026-03-01]
+        # ε-greedy Strategy: เลือก Action เพื่อ Explore หรือ Exploit
         if random.random() < epsilon:
             action = random.randint(0, 3) 
         else:
@@ -409,7 +390,7 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, st_progress
         # --- Q-LEARNING: อัปเดตความรู้ (Update Q-Table) ---
         new_best_fitness = min(population, key=lambda ind: ind['fitness'])['fitness']
         
-        # Reward: ยิ่งค่า Fitness ลดลงมาก (ดีขึ้น) ยิ่งได้รางวัลมาก [cite: 2026-03-01]
+        # Reward: ยิ่งค่า Fitness ลดลงมาก (ดีขึ้น) ยิ่งได้รางวัลมาก
         reward = old_best_fitness - new_best_fitness 
         
         next_state = get_state(population, fitness_var_threshold)
@@ -424,7 +405,7 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, st_progress
         old_best_fitness = new_best_fitness
         epsilon = max(0.01, epsilon * EPSILON_DECAY) 
 
-        # 🌟 อัปเดต UI Progress Bar [cite: 2026-03-07]
+        # 🌟 อัปเดต UI Progress Bar 
         if st_progress:
             st_progress.progress((gen + 1) / num_gen)
 
