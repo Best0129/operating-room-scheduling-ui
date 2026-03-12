@@ -36,7 +36,7 @@ st.markdown(
     """
     <style>
         section[data-testid="stSidebar"] { width: 380px !important; }
-        .main-title { font-size: 32px; font-weight: bold; color: #1E40AF; margin-bottom: 20px; }
+        .main-title { font-size: 40px; font-weight: bold; color: #1E40AF; margin-bottom: 20px; }
         div.stButton > button {
             display: block; margin-left: auto; margin-right: auto;
             padding: 12px 30px; font-size: 18px; font-weight: bold;
@@ -88,11 +88,22 @@ with st.sidebar:
             "เลือก Algorithm ที่ใช้คำนวณ",
             ("Standard GA", "Hybrid GA-Q-learning", "ST Baseline (Heuristic)")
         )
+
+        is_st_selected = (algorithm_selection == "ST Baseline (Heuristic)")
         
         # ตั้งค่า N และ Generations
         col_p1, col_p2 = st.columns(2)
-        num_generations = col_p1.number_input("Generations", 10, 1000, value=100)
-        pop_size = col_p2.number_input("Population", 10, 500, value=100)
+        num_generations = col_p1.number_input(
+          "Generations", 10, 1000, value=100, 
+          disabled=is_st_selected,
+          help="ST Baseline ไม่มีการใช้ Generations" if is_st_selected else None
+        )
+        
+        pop_size = col_p2.number_input(
+          "Population", 10, 500, value=100, 
+          disabled=is_st_selected,
+          help="ST Baseline ไม่มีการใช้ Population" if is_st_selected else None
+        )
         
         # แสดงข้อมูล Weights
         st.caption(f"Weights Config: Overtime({W_OVERTIME}) | Imbalance({W_IMBALANCE}) | Makespan({W_MAKESPAN})")
