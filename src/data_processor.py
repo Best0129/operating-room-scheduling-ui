@@ -47,7 +47,6 @@ def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
         return []
 
     df = df.reset_index(drop=True) 
-    
     # ดึง Mapping จาก Config
     current_mapping = CONFIGS[mode]["SERVICE_TO_CLUSTER"]
 
