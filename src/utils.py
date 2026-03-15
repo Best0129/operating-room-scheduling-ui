@@ -3,7 +3,6 @@ import random
 import math
 from datetime import datetime, timedelta
 from collections import defaultdict
-# from config.ga_config import CLUSTER_TO_ORS
 
 # --- TIME CONVERSION ---
 def slot_to_time(slot_number, OPERATING_TIME, SLOT_DURATION_MIN):

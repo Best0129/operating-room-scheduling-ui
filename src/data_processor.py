@@ -20,7 +20,7 @@ def load_dataset(mode):
     else:
         # สำหรับ Experiment 2 (Anesthesia)
         dataset_folder = Path("data")
-        df_file = dataset_folder / "Exp2_Anesthesia_Processed.csv"
+        df_file = dataset_folder / "Exp3_Simulated_Data.csv"
         if not df_file.exists():
             print(f"ไม่พบไฟล์: {df_file}")
             return pd.DataFrame() 

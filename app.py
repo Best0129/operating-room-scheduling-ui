@@ -115,7 +115,9 @@ if run_button:
         progress_bar = st.progress(0)
         
         with st.spinner(f"กำลังคำนวณด้วย {algorithm_selection}..."):
-            all_or_ids = [or_id for ors in cfg["CLUSTER_TO_ORS"].values() for or_id in ors]
+            # all_or_ids = [or_id for ors in cfg["CLUSTER_TO_ORS"].values() for or_id in ors]
+            # all_or_ids = set(or_id for ors in cfg["CLUSTER_TO_ORS"].values() for or_id in ors)
+            all_or_ids = list(set(or_id for ors in cfg["CLUSTER_TO_ORS"].values() for or_id in ors))
             
             # --- แยกรันตามเงื่อนไข (แก้ไขชื่อให้ตรงกับ selectbox) ---
             if algorithm_selection == "ST Baseline (Heuristic)":
