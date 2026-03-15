@@ -327,37 +327,38 @@ def standard_ga_mutation(individual, mutation_rate, surgeries, CLUSTER_TO_ORS):
 # RUN (Standard GA และ Hybrid GA-Q)
 # ----------------------------------------------------
 
-def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, patience=50, st_progress=None):
+def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, patience=50, st_progress=None, chart_placeholder=None):
     """
     Standard GA: อิงตามหลักการ Jupyter Notebook 100% 
     เพิ่มระบบ Early Stopping และใช้ตรรกะ Inversion Mutation
+    🌟 ปรับปรุง: รองรับการแสดงผล Live Plotting ผ่าน chart_placeholder
     """
-    # 1. เตรียมข้อมูลพื้นฐานตาม Mode
     current_cfg = CONFIGS[mode]
     cluster_mapping = current_cfg["CLUSTER_TO_ORS"]
-    all_or_ids = [or_id for ors in cluster_mapping.values() for or_id in ors]
-    buffer_slots = 1 # หรือดึงจาก CONFIGS
+    
+    # 🌟 แก้ไข: ใช้ set() เพื่อป้องกันการนับห้องซ้ำเหมือนฝั่ง UI
+    all_or_ids = list(set(str(or_id).strip() for ors in cluster_mapping.values() for or_id in ors))
+    buffer_slots = BUFFER_SLOTS 
 
-    # 2. ตั้งค่าการหยุดก่อนกำหนด (Early Stopping)
     no_improvement_count = 0
     best_so_far = float('inf')
     stop_gen = num_gen - 1
     history = []
 
-    # 3. สร้างประชากรเริ่มต้นและคำนวณ Fitness
+    # สร้างประชากรเริ่มต้น
     population = generate_initial_population(surgeries, pop_size, cluster_mapping)
     for ind in population:
         sched, status = decode_individual(ind, surgeries, all_or_ids, total_slots, buffer_slots)
         ind['fitness'] = evaluate_fitness(sched, status, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
 
-    # 4. EVOLUTIONARY CYCLE
+    # EVOLUTIONARY CYCLE
     for gen in range(num_gen):
         # เรียงลำดับ (Fitness น้อย = เก่ง)
         population.sort(key=lambda x: x['fitness'])
         current_best_fitness = population[0]['fitness']
         history.append(current_best_fitness)
 
-        # ตรรกะ Early Stopping (อิงตาม Notebook)
+        # ตรรกะ Early Stopping
         if current_best_fitness < best_so_far:
             best_so_far = current_best_fitness
             no_improvement_count = 0
@@ -379,61 +380,59 @@ def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, patience=50
         
         # REPRODUCTION: สร้างลูกหลาน
         while len(next_gen) < pop_size:
-            # ใช้ random.sample เพื่อไม่ให้ได้พ่อแม่คนเดียวกัน (อิงตาม Notebook)
             p1, p2 = random.sample(parents, 2)
             
-            # --- Crossover ---
             if random.random() < CROSSOVER_RATE:
                 child = standard_ga_crossover(p1, p2) 
             else:
                 child = {'order': p1['order'][:], 'assigned_or_list': p1['assigned_or_list'][:], 'fitness': None}
             
-            # --- Mutation ---
-            # ใช้ตรรกะ Inversion Mutation จาก Notebook
             child = standard_ga_mutation(child, MUTATION_RATE, surgeries, cluster_mapping)
             
-            # --- Evaluation ---
             sched, status = decode_individual(child, surgeries, all_or_ids, total_slots, buffer_slots)
             child['fitness'] = evaluate_fitness(sched, status, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
             next_gen.append(child)
         
         population = next_gen
 
-        # อัปเดต Progress Bar บน UI
+        # 🌟 อัปเดต Progress Bar และพล็อตกราฟ Live
         if st_progress:
             st_progress.progress((gen + 1) / num_gen)
+            
+        # อัปเดตกราฟทุกๆ 10 Generation เพื่อไม่ให้หน้าเว็บกระตุก
+        if chart_placeholder and gen % 10 == 0:
+            chart_placeholder.line_chart(history)
 
-    # 5. คืนค่าผลลัพธ์ที่ดีที่สุด
+    # 🌟 วาดกราฟจุดสุดท้ายก่อนจบฟังก์ชัน (กรณีที่ลูปจบแบบพอดีหรือ Early Stop)
+    if chart_placeholder:
+        chart_placeholder.line_chart(history)
+
     final_best = min(population, key=lambda x: x['fitness'])
     final_sched, final_status = decode_individual(final_best, surgeries, all_or_ids, total_slots, buffer_slots)
     
     return final_best, history, final_sched, final_status
 
-def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50, st_progress=None):
+
+def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50, st_progress=None, chart_placeholder=None):
     """
     Hybrid GA-Q-learning: อิงตามหลักการ Jupyter Notebook 100%
-    ประสานการทำงานระหว่าง Genetic Algorithm และ Q-Learning เพื่อปรับตัวแปรอัตโนมัติ
+    🌟 ปรับปรุง: รองรับการแสดงผล Live Plotting ผ่าน chart_placeholder
     """
-    # 1. เตรียมค่า Config ตามโหมดการทดลอง
     current_cfg = CONFIGS[mode]
     cluster_mapping = current_cfg["CLUSTER_TO_ORS"]
-    all_or_ids = [or_id for ors in cluster_mapping.values() for or_id in ors]
     
-    # 2. เริ่มต้นระบบ (เหมือนใน Notebook)
+    # 🌟 แก้ไข: ใช้ set() ป้องกันห้องซ้ำ
+    all_or_ids = list(set(str(or_id).strip() for ors in cluster_mapping.values() for or_id in ors))
+    
     population = generate_initial_population(surgeries, pop_size, cluster_mapping)
     q_table = initialize_q_table()
     epsilon = EPSILON_START
     stop_gen = num_gen - 1
     
-    # 3. Initial Evaluation
     for ind in population:
         sched, status = decode_individual(ind, surgeries, all_or_ids, total_slots, BUFFER_SLOTS)
-        ind['fitness'] = evaluate_fitness(sched, status, total_slots, 
-                                        W_MAKESPAN, 
-                                        W_OVERTIME, 
-                                        W_IMBALANCE)
+        ind['fitness'] = evaluate_fitness(sched, status, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
 
-    # คำนวณขีดจำกัดความหลากหลายเริ่มต้น (Diversity Threshold)
     fitness_var_threshold = np.var([ind['fitness'] for ind in population]) * FITNESS_VAR_THRESHOLD_FACTOR
     
     no_improvement_count = 0
@@ -441,12 +440,9 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
     old_best_fitness = min(population, key=lambda ind: ind['fitness'])['fitness']
     best_fitness_history.append(old_best_fitness)
 
-    # 4. EVOLUTIONARY CYCLE WITH Q-LEARNING
     for gen in range(num_gen):
-        # --- Q-LEARNING: Observation & Decision ---
         current_state = get_state(population, fitness_var_threshold)
         
-        # select_action logic (ε-greedy)
         if random.random() < epsilon:
             action = random.randint(0, 3)
         else:
@@ -454,17 +450,14 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
             
         ops = OPERATOR_MAP[action]
 
-        # --- GA: Evolution (Reproduction) ---
         population.sort(key=lambda ind: ind['fitness'])
-        next_population = [copy.deepcopy(ind) for ind in population[:NUM_ELITES]] # Elitism
+        next_population = [copy.deepcopy(ind) for ind in population[:NUM_ELITES]]
         
         parents = tournament_selection(population, TOURNAMENT_SIZE, int(pop_size * 0.5))
         
         while len(next_population) < pop_size:
-            # ใช้ random.sample เพื่อความหลากหลาย (เหมือน Notebook)
             p1, p2 = random.sample(parents, 2)
             
-            # Crossover based on action
             if random.random() < CROSSOVER_RATE:
                 if ops['crossover'] == 'single':
                     offspring = crossover_single_point(p1, p2)
@@ -473,22 +466,16 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
             else:
                 offspring = {'order': p1['order'][:], 'assigned_or_list': p1['assigned_or_list'][:], 'fitness': None}
             
-            # Mutation based on action rate
             offspring = mutate_with_rate(offspring, surgeries, ops['mutation_rate'], cluster_mapping)
             
-            # Evaluation ของลูก
             child_sched, child_status = decode_individual(offspring, surgeries, all_or_ids, total_slots, BUFFER_SLOTS)
             offspring['fitness'] = evaluate_fitness(child_sched, child_status, total_slots, 
-                                                 W_MAKESPAN, 
-                                                 W_OVERTIME, 
-                                                 W_IMBALANCE)
+                                                 W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
             next_population.append(offspring)
 
-        # --- Q-LEARNING: Update Knowledge ---
         new_best_fitness = min(next_population, key=lambda ind: ind['fitness'])['fitness']
-        reward = old_best_fitness - new_best_fitness # Reward คือค่าความต่างของ Fitness ที่ดีขึ้น
+        reward = old_best_fitness - new_best_fitness 
         
-        # ตรรกะ Early Stopping (อิงตาม Notebook)
         if new_best_fitness < old_best_fitness:
             no_improvement_count = 0
         else:
@@ -496,12 +483,10 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
 
         next_state = get_state(next_population, fitness_var_threshold)
         
-        # Bellman Equation Update (update_q_values logic)
         old_q = q_table[current_state, action]
         max_future_q = np.max(q_table[next_state])
         q_table[current_state, action] = (1 - ALPHA) * old_q + ALPHA * (reward + GAMMA * max_future_q)
 
-        # อัปเดตพารามิเตอร์สำหรับรอบถัดไป
         population = next_population
         old_best_fitness = new_best_fitness
         epsilon = max(0.01, epsilon * EPSILON_DECAY)
@@ -514,11 +499,18 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
             best_fitness_history.extend([new_best_fitness] * remaining_gens)
             break
 
-        # อัปเดต UI Progress Bar
+        # 🌟 อัปเดต UI Progress Bar และ Live Chart
         if st_progress:
             st_progress.progress((gen + 1) / num_gen)
+            
+        # พล็อตกราฟ Live ทุกๆ 10 Generation
+        if chart_placeholder and gen % 10 == 0:
+            chart_placeholder.line_chart(best_fitness_history)
 
-    # 5. คืนค่าคำตอบที่ดีที่สุด
+    # 🌟 วาดกราฟเส้นสุดท้ายให้สมบูรณ์
+    if chart_placeholder:
+        chart_placeholder.line_chart(best_fitness_history)
+
     final_best = min(population, key=lambda ind: ind['fitness'])
     final_sched, final_status = decode_individual(final_best, surgeries, all_or_ids, total_slots, BUFFER_SLOTS)
     

@@ -53,6 +53,7 @@ def run_ST(surgeries, TOTAL_SLOTS, BUFFER_SLOTS, mode):
         OR_schedules[curr_day][assigned_or].append({
             'Encounter ID': surgery['Encounter ID'],
             'Service': surgery.get('Service', 'N/A'), # เพิ่มเพื่อให้ UI แสดงผลได้
+            'Actual_Dept': surgery.get('Actual_Dept', 'N/A'), # เพิ่มเพื่อให้ UI แสดงผลได้
             'booked_time': surgery['booked_time'],
             'Weight': surgery['Weight'],
             'start_slot': start_slot,
@@ -60,7 +61,6 @@ def run_ST(surgeries, TOTAL_SLOTS, BUFFER_SLOTS, mode):
             'day': curr_day
         })
         
-        # 10. อัปเดตสถานะห้อง (เหมือน Notebook)
         room_status[assigned_or]['day'] = curr_day
         room_status[assigned_or]['clock'] = potential_end
 

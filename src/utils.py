@@ -21,7 +21,6 @@ def slot_to_time(slot_number, OPERATING_TIME, SLOT_DURATION_MIN):
     return f"{hours:02d}:{mins:02d}"
 
 
-# --- DECODE FUNCTION ---
 def decode_individual(individual, surgeries, ALL_OR_IDS, TOTAL_SLOTS_PER_DAY, BUFFER_SLOTS):
     """
     ถอดรหัสโครโมโซมเป็นตารางเวลา: อิงตามตรรกะ Jupyter Notebook 100%
@@ -29,11 +28,15 @@ def decode_individual(individual, surgeries, ALL_OR_IDS, TOTAL_SLOTS_PER_DAY, BU
     """
     # โครงสร้าง: { day_index: { or_id: [case1, case2, ...] } }
     OR_schedules = defaultdict(lambda: defaultdict(list))    
-    room_status = {or_id: {'day': 0, 'clock': 0} for or_id in ALL_OR_IDS}
+    
+    # 🌟 บังคับให้ Key ของ room_status เป็น String เสมอ
+    room_status = {str(or_id).strip(): {'day': 0, 'clock': 0} for or_id in ALL_OR_IDS}
     
     for i, idx in enumerate(individual['order']):
         surgery = surgeries[idx]
-        or_id = individual['assigned_or_list'][i]
+        
+        # 🌟 บังคับให้ or_id เป็น String เพื่อให้จับคู่กับ room_status ได้พอดี
+        or_id = str(individual['assigned_or_list'][i]).strip()
         
         # 1. ดึงสถานะปัจจุบันของห้องที่ถูกเลือก
         curr_day = room_status[or_id]['day']
@@ -47,18 +50,18 @@ def decode_individual(individual, surgeries, ALL_OR_IDS, TOTAL_SLOTS_PER_DAY, BU
         # 3. คำนวณจุดสิ้นสุดที่เป็นไปได้
         potential_end = start_slot + surgery['slots_needed']
         
-        # 🌟 4. ตรรกะการขึ้นวันใหม่ (อิงตาม Notebook)
-        # ถ้าจัดลงไปแล้วเกินเวลาทำการปกติ (TOTAL_SLOTS_PER_DAY) ให้ไปเริ่มเช้าวันใหม่
+        # 4. ตรรกะการขึ้นวันใหม่ (อิงตาม Notebook)
+        # ถ้าจัดลงไปแล้วเกินเวลาทำการปกติ ให้ไปเริ่มเช้าวันใหม่
         if potential_end > TOTAL_SLOTS_PER_DAY:
             curr_day += 1      # ขยับไปวันถัดไป
             start_slot = 0     # เริ่มที่ Slot 0 (เวลาเริ่มงานตอนเช้า)
             potential_end = surgery['slots_needed']
             
-        # 5. บันทึกลงตาราง (เพิ่มคีย์ 'Service' จากฝั่ง UI เพื่อการแสดงผล)
+        # 5. บันทึกลงตาราง
         OR_schedules[curr_day][or_id].append({
             'Encounter ID': surgery['Encounter ID'],
-            'Service': surgery.get('Service', 'N/A'), # ดึงจาก surgery เพื่อโชว์ใน UI
-            'Actual_Dept': surgery.get('Actual_Dept', 'N/A'), # ดึงจาก surgery เพื่อโชว์ใน UI
+            'Service': surgery.get('Service', 'N/A'), 
+            'Actual_Dept': surgery.get('Actual_Dept', 'N/A'), 
             'booked_time': surgery['booked_time'],
             'Weight': surgery['Weight'],
             'start_slot': start_slot,

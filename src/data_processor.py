@@ -10,6 +10,7 @@ import streamlit as st
 # ==========================================
 def load_dataset(mode):
     if mode == "Experiment 1 (Kaggle)":
+        # สำหรับ Experiment 1 (Kaggle)
         file_path = "2022_Q1_OR_Utilization.csv"
         df = kagglehub.load_dataset(
             kagglehub.KaggleDatasetAdapter.PANDAS,
@@ -17,8 +18,16 @@ def load_dataset(mode):
             file_path,
         )
         return df
-    else:
+    elif mode == "Experiment 2 (Anesthesia)":
         # สำหรับ Experiment 2 (Anesthesia)
+        dataset_folder = Path("data")
+        df_file = dataset_folder / "Exp2_Anesthesia_Processed.csv"
+        if not df_file.exists():
+            print(f"ไม่พบไฟล์: {df_file}")
+            return pd.DataFrame() 
+        return pd.read_csv(df_file)
+    else:
+        # สำหรับ Experiment 3 (Simulated Data)        
         dataset_folder = Path("data")
         df_file = dataset_folder / "Exp3_Simulated_Data.csv"
         if not df_file.exists():
@@ -56,24 +65,19 @@ def calculate_case_weights(df, service_col='Service', time_col='Booked Time (min
 
 
 def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
-    """
-    แปลง DataFrame ที่ผ่านการ Clean แล้วเป็น List of Dict 
-    โดยอิงโครงสร้างข้อมูลตาม Jupyter Notebook [cite: 2026-03-12]
-    """
+    
     if df.empty:
         return []
-
     df = df.reset_index(drop=True) 
     
     # 1. ดึง Mapping จาก Config ตามโหมดการทดลอง
     # (ใน Notebook อาจจะเป็นตัวแปร Global แต่ใน UI เราเก็บแยกตามโหมดใน CONFIGS)
     current_mapping = CONFIGS[mode]["SERVICE_TO_CLUSTER"]
 
-    # 2. จัดการเรื่อง Weight (อิงตามหลักการ Notebook)
+    # 2. จัดการเรื่อง Weight
     if 'Weight' in df.columns:  
         case_weights = df['Weight'].to_dict()
     else:
-        # เรียกใช้ฟังก์ชันคำนวณ Weight ที่เราปรับจูนให้ตรงกับ Notebook แล้ว
         case_weights = calculate_case_weights(df)    
 
     surgeries = []
@@ -82,7 +86,7 @@ def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
             # 3. ดึงค่าจากคอลัมน์ที่ Clean มาแล้ว (ชื่อคอลัมน์ต้องตรงกับใน Notebook)
             booked = int(row['Booked Time (min)'])
 
-            if mode == "Experiment 2 (Anesthesia)":
+            if mode == "Experiment 2 (Anesthesia)" or mode == "Experiment 3 (Simulated 1 Year)":
                 logic_service = str(row['Technique']).strip()
                 actual_dept = str(row['Service']).strip()
             else:

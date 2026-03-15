@@ -15,7 +15,7 @@ MAX_SIMULATION_DAYS = 365
 # 2. GA HYPERPARAMETERS (Default Settings)
 # =====================================================
 POP_SIZE = 100          
-NUM_GENERATIONS = 1000
+NUM_GENERATIONS = 100
 CROSSOVER_RATE = 0.9   
 MUTATION_RATE = 0.4 
 TOURNAMENT_SIZE = 4    
@@ -76,5 +76,20 @@ CONFIGS = {
         #     'C': [601, 602, 603, 604, 605, 606, 607, 608, 801, 803, 804, 805, 806, 807, 808, 701, 'จิตเวช'],
         #     'D': [601, 602, 603, 604, 605, 606, 607, 608, 801, 803, 804, 805, 806, 807, 808, 701, 'จิตเวช'],
         # }
+    },
+    "Experiment 3 (Simulated 1 Year)": {
+        "SERVICE_TO_CLUSTER": {
+            'GA c ETT/TT': 'A', 'Combined [ETT+NB]': 'A', 'Combined [ETT+SB]': 'A',
+            'Spinal Block': 'B', 'SB': 'B', 'Nerve Block': 'B', 'Epidural Block': 'B', 
+            'RA [Spinal block+Nerve block]': 'B',
+            'GA c LMA': 'C', 'GA c mask': 'C', 'Combined [LMA+NB]': 'C', 'SB, LMA': 'C',
+            'IV/TIVA': 'D', 'MAC': 'D', 'Fail block': 'D', '-': 'D'
+        },
+        "CLUSTER_TO_ORS": {
+            'A': [601, 602, 603, 604],
+            'B': [605, 606, 607, 608],
+            'C': [801, 803, 804, 805],
+            'D': [806, 807, 808, 701, ' จิตเวช']
+        }
     }
 } 
