@@ -59,6 +59,7 @@ def decode_individual(individual, surgeries, ALL_OR_IDS, TOTAL_SLOTS_PER_DAY, BU
         OR_schedules[curr_day][or_id].append({
             'Encounter ID': surgery['Encounter ID'],
             'Service': surgery.get('Service', 'N/A'), # ดึงจาก surgery เพื่อโชว์ใน UI
+            'Actual_Dept': surgery.get('Actual_Dept', 'N/A'), # ดึงจาก surgery เพื่อโชว์ใน UI
             'booked_time': surgery['booked_time'],
             'Weight': surgery['Weight'],
             'start_slot': start_slot,

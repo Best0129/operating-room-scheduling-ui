@@ -81,14 +81,21 @@ def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
         try:
             # 3. ดึงค่าจากคอลัมน์ที่ Clean มาแล้ว (ชื่อคอลัมน์ต้องตรงกับใน Notebook)
             booked = int(row['Booked Time (min)'])
-            service_name = str(row['Service'])
-            
+
+            if mode == "Experiment 2 (Anesthesia)":
+                logic_service = str(row['Technique']).strip()
+                actual_dept = str(row['Service']).strip()
+            else:
+                logic_service = str(row['Service']).strip()
+                actual_dept = logic_service
+
             surgeries.append({
                 'Index': idx,
                 'Encounter ID': int(row['Encounter ID']),
-                'Service': service_name,
+                'Service': logic_service,
+                'Actual_Dept': actual_dept,
                 # ค้นหา Cluster จาก Mapping ของแต่ละ Experiment
-                'cluster': current_mapping.get(service_name, 'A'), 
+                'cluster': current_mapping.get(logic_service, 'A'), 
                 'booked_time': booked,
                 'slots_needed': math.ceil(booked / SLOT_DURATION_MIN),
                 'buffer_slots': BUFFER_SLOTS,
