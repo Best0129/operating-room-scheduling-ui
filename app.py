@@ -121,12 +121,6 @@ st.markdown(
             box-shadow: 0 4px 6px -1px rgba(30, 64, 175, 0.1) !important;
         }
 
-        /* เส้นแบ่งส่วนในหน้าดาวน์โหลด */
-        .download-divider {
-            border-top: 1px solid #E2E8F0;
-            margin: 20px 0;
-        }
-
           .overview-header {
               font-size: 18px;
               font-weight: 600;
@@ -326,9 +320,10 @@ if run_button or st.session_state.results:
         ax.set_title(title, pad=35, fontweight='bold')
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.grid(True, axis='y', linestyle='--', alpha=0.5)
+        ax.spines['top'].set_visible(True)
+        ax.spines['right'].set_visible(True)
+        # ax.grid(True, axis='y', linestyle='--', alpha=0.5)
+        plt.grid(True, which="both", alpha=0.2)
 
     # ---------------------------------------------------------
     # 1. ST Baseline (Heuristic)
@@ -513,7 +508,19 @@ if run_button or st.session_state.results:
             unsafe_allow_html=True
         )
         fig_combine, ax_combine = plt.subplots(figsize=(12, 6))
-        ax_combine.axhline(y=res["ST Baseline"]['history'][0], color='r', linestyle='--', label=f'ST Baseline ({res["ST Baseline"]["history"][0]:.2f})')
+        
+        # max_gen = len(res["Standard GA"]['history']) - 1
+        ax_combine.hlines(
+            y=res["ST Baseline"]['history'][0], 
+            xmin=0, 
+            xmax=num_generations, 
+            color='r', 
+            linestyle='--', 
+            linewidth=2,
+            label=f'ST Baseline ({res["ST Baseline"]["history"][0]:.2f})'
+        )
+
+        # วาดเส้นอื่นตามปกติ
         ax_combine.plot(res["Standard GA"]['history'], label='Standard GA', color='#1E40AF')
         ax_combine.plot(res["Hybrid GA-Q"]['history'], label='Hybrid GA-Q', color='#10B981')
         
@@ -608,7 +615,7 @@ if run_button or st.session_state.results:
                         ดาวน์โหลดผลลัพธ์การจัดตารางเวลาห้องผ่าตัด: {exp_mode}
                     </h3>
                     <p style='color:#64748B; font-size:16px; margin-bottom:20px;'>
-                        สามารถเลือกดาวน์โหลดข้อมูลตารางเวลาแยกตามอัลกอริทึม
+                        สามารถเลือกดาวน์โหลดข้อมูลการจัดตารางเวลาห้องผ่าตัดแยกตามอัลกอริทึม
                     </p>
                 </div>
                 """,
@@ -643,14 +650,12 @@ if run_button or st.session_state.results:
                           key=f"dl_{algo}",
                           use_container_width=True
                       )
-
+# มันมีเส้นขีด ระหว่า label="ดาวน์โหลดไฟล์ CSV" และ สรุปการจัดตารางเวลาห้องผ่าตัดรวม มันคือตรงไหนต้องการเอาออก
                       st.markdown("</div>", unsafe_allow_html=True)
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            
             # ส่วนดาวน์โหลดรวม (Combined)
             if all_dfs:
-                st.markdown("""<div style='border-top: 1px solid #E2E8F0; margin: 10px 0 25px 0;'></div>""", unsafe_allow_html=True)
+                st.markdown("""<div style='margin: 10px 0 25px 0;'></div>""", unsafe_allow_html=True)
                 
                 # จัดกลุ่มปุ่มดาวน์โหลดรวมให้อยู่ในพื้นที่ที่เด่นขึ้นเล็กน้อย
                 c_left, c_mid, c_right = st.columns([1, 2, 1])
