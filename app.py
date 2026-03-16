@@ -323,7 +323,7 @@ if run_button or st.session_state.results:
     container_q = st.container()
 
     def style_plot(ax, title, xlabel, ylabel):
-        ax.set_title(title, pad=15, fontweight='bold')
+        ax.set_title(title, pad=35, fontweight='bold')
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.spines['top'].set_visible(False)
@@ -504,27 +504,27 @@ if run_button or st.session_state.results:
         )
 
         # --- กราฟเปรียบเทียบรวม ---
-        # st.markdown("<br><b>กราฟเปรียบเทียบการลู่เข้าหาคำตอบที่ดีที่สุด (Combined Convergence)</b>", unsafe_allow_html=True)
-        # st.subheader("กราฟเปรียบเทียบการลู่เข้าหาคำตอบที่ดีที่สุด (Convergence Comparison of Algorithms)")
         st.markdown(
-            f"<h4>กราฟเปรียบเทียบการลู่เข้าหาคำตอบที่ดีที่สุด (Convergence Comparison of Algorithms)</h4>",
+            """
+            <h4 style="margin-top:50px; margin-bottom:20px;">
+            กราฟเปรียบเทียบการลู่เข้าหาคำตอบที่ดีที่สุด (Convergence Comparison of Algorithms)
+            </h4>
+            """,
             unsafe_allow_html=True
-        ) 
-        fig_combine, ax_combine = plt.subplots(figsize=(12, 5.5))
+        )
+        fig_combine, ax_combine = plt.subplots(figsize=(12, 6))
         ax_combine.axhline(y=res["ST Baseline"]['history'][0], color='r', linestyle='--', label=f'ST Baseline ({res["ST Baseline"]["history"][0]:.2f})')
         ax_combine.plot(res["Standard GA"]['history'], label='Standard GA', color='#1E40AF')
         ax_combine.plot(res["Hybrid GA-Q"]['history'], label='Hybrid GA-Q', color='#10B981')
         
-        style_plot(ax_combine, "", "Generation", "Penalty Score")
-        # ax_combine.set_xlabel("Generation"); ax_combine.set_ylabel("Penalty Score")
+        style_plot(ax_combine, "Convergence Comparison of Algorithms", "Generation", "Penalty Score")
         ax_combine.legend(
-            loc='upper center',
-            bbox_to_anchor=(0.5, 1.15),
+            loc='lower center',       # ใช้ฐานของกล่องเป็นจุดอ้างอิง
+            bbox_to_anchor=(0.5, 1.0), # วางฐานไว้ที่ตำแหน่งขอบบนของกราฟพอดี (y=1.0)
             ncol=3,
             frameon=False,
             fontsize=11
         )
-        # ax_combine.grid(True, alpha=0.3)
         st.pyplot(fig_combine)
 
         st.markdown("---")
