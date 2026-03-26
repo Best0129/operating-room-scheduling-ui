@@ -13,7 +13,7 @@ from src.algorithms.ga_scheduler import run_ga_standard, run_ga_hybrid_q
 from src.algorithms.st_scheduler import run_ST
 
 # =================================================================
-# 1. INITIAL SETUP & CSS
+# INITIAL SETUP & CSS
 # =================================================================
 st.set_page_config(page_title="ระบบจัดตารางเวลาห้องผ่าตัด", layout="wide")
 
@@ -26,7 +26,7 @@ def load_data(mode, slot_duration):
     return surgeries
 
 if 'results' not in st.session_state:
-    st.session_state.results = {} # เปลี่ยนเป็น dict เก็บ 3 อัลกอริทึม
+    st.session_state.results = {}
     
 if 'last_exp' not in st.session_state:
     st.session_state.last_exp = None
@@ -52,36 +52,31 @@ st.markdown(
             transition: all 0.2s ease;
         }
 
-        /* ส่วนที่ทำให้ st.metric มีกรอบสวยๆ เหมือนแบบที่ 2 */
         [data-testid="stMetric"] {
-            background-color: #F8FAFC; /* สีพื้นหลังเทาอ่อน */
-            padding: 15px;             /* ระยะห่างจากขอบด้านใน */
-            border-radius: 10px;       /* ความมนของมุม */
-            border: 1px solid #E2E8F0; /* เส้นขอบบางๆ */
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* เงาบางๆ เพิ่มมิติ */
+            background-color: #F8FAFC;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
-        /* แก้ไขให้ตัวเลขและหัวข้อจัดวางสวยงามในกรอบ */
         [data-testid="stMetric"] > div {
             width: fit-content;
             margin: auto;
         }
 
-        /* ตกแต่งสีของตัวหนังสือ Lower Bound (Delta) ให้ดูสะอาดตา */
         [data-testid="stMetricDelta"] > div {
             font-weight: 500;
         }
 
-        /* สไตล์สำหรับข้อความที่อยู่นอกกล่อง (Lower Bound) */
         .lower-bound-text {
             font-size: 14px;
             color: #FF0000;
             text-align: center;
-            margin-top: -15px; /* ดันขึ้นไปให้ใกล้กล่องมากขึ้น */
+            margin-top: -15px;
             margin-bottom: 15px;
         }
 
-       /* --- เพิ่มเติมส่วน Download CSV --- */
         .download-center-container {
             # border: 1px solid #E2E8F0;
             border-radius: 12px;
@@ -102,7 +97,6 @@ st.markdown(
             margin-bottom: 5px;
         }
 
-        /* ปรับแต่งปุ่ม Download ของ Streamlit ให้เป็น Modern Outline */
         div.stDownloadButton > button {
             width: 100% !important;
             background-color: white !important;
@@ -155,7 +149,6 @@ st.markdown(
             font-size: 16px; 
         }
 
-
     </style>
     """,
     unsafe_allow_html=True,
@@ -164,7 +157,7 @@ st.markdown(
 st.markdown('<div class="main-title">🏥 ระบบจำลองการจัดตารางเวลาห้องผ่าตัด</div>', unsafe_allow_html=True)
 
 # =================================================================
-# 2. SIDEBAR CONFIGURATION
+# SIDEBAR CONFIGURATION
 # =================================================================
 
 with st.sidebar:
@@ -217,7 +210,7 @@ operating_time = (dt_start.hour + dt_start.minute/60, dt_end.hour + dt_end.minut
 total_avail_minutes_per_day = total_slots * input_slot_duration
 
 # =================================================================
-# 3 & 4. EXECUTION & VISUALIZATION
+# EXECUTION & VISUALIZATION
 # =================================================================
 
 surgeries_list = load_data(exp_mode, input_slot_duration)
@@ -229,32 +222,29 @@ if not surgeries_list:
 # ดึงข้อมูลห้องผ่าตัด
 all_or_ids = list(set(str(or_id).strip() for ors in cfg.get("CLUSTER_TO_ORS", {}).values() for or_id in ors))
 
-# st.header(f"ข้อมูลของชุดการทดลอง: {exp_mode}")
 st.markdown(
     f"<h3>ข้อมูลของชุดการทดลอง: {exp_mode}</h3>",
     unsafe_allow_html=True
 )
 
-# --- 1. คำนวณค่าพื้นฐาน ---
+# --- คำนวณค่าพื้นฐาน ---
 total_cases = len(surgeries_list)
 total_ors = len(all_or_ids)
 total_mins = sum(s['booked_time'] for s in surgeries_list)
 unique_depts = len(set(s.get('Actual_Dept', s.get('Service', '')) for s in surgeries_list))
 
-# --- 2. ตรรกะคำนวณช่วงวันที่แบบใหม่ (รองรับทุกโหมด) ---
+# --- ตรรกะคำนวณช่วงวันที่แบบใหม่ (รองรับทุกโหมด) ---
 all_dates = [s.get('Original_Date', s.get('Date')) for s in surgeries_list]
 # กรองค่าว่างและ Unknown ออก
 clean_dates = [d for d in all_dates if d and str(d).lower() != 'unknown']
 
 if clean_dates:
     try:
-        # ใช้ pd.to_datetime เพื่อความยืดหยุ่นในการอ่าน format วันที่
         date_series = pd.to_datetime(clean_dates)
         start_date = date_series.min()
         end_date = date_series.max()
         num_days = len(date_series.unique())
         
-        # แปลงเป็นปี พ.ศ. (+543)
         start_str = f"{start_date.day}/{start_date.month}/{start_date.year + 543}"
         end_str = f"{end_date.day}/{end_date.month}/{end_date.year + 543}"
         dataset_days_display = f"{start_str} - {end_str} ({num_days} วัน)"
@@ -265,7 +255,6 @@ if clean_dates:
 else:
     dataset_days_display = "ไม่ระบุ"
 
-# --- 3. แสดงผลหน้าจอ (HTML & CSS) ---
 st.markdown(f"""
     <div class="overview-container">
         <div class="overview-header"><h4>ภาพรวมชุดข้อมูล (Dataset Overview)</h4></div>
@@ -304,14 +293,11 @@ if run_button:
         # เคลียร์ผลลัพธ์เก่าทิ้งเมื่อกดรันใหม่
         st.session_state.results = {}
 
-# หากมีการกดรัน หรือมีผลลัพธ์เก่าค้างอยู่ ให้แสดงหน้าต่างแสดงผล
 if run_button or st.session_state.results:
-    # st.header(f"ผลการทดลอง: {exp_mode}")
     st.markdown(
         f"<h3>ผลการทดลอง: {exp_mode}</h3>",
         unsafe_allow_html=True
     )
-    # เตรียมกล่อง Container 3 กล่องสำหรับ 3 อัลกอริทึมรอไว้แต่แรก
     container_st = st.container()
     container_ga = st.container()
     container_q = st.container()
@@ -322,21 +308,16 @@ if run_button or st.session_state.results:
         ax.set_ylabel(ylabel)
         ax.spines['top'].set_visible(True)
         ax.spines['right'].set_visible(True)
-        # ax.grid(True, axis='y', linestyle='--', alpha=0.5)
         plt.grid(True, which="both", alpha=0.2)
 
     # ---------------------------------------------------------
-    # 1. ST Baseline (Heuristic)
+    # ST Baseline (Heuristic)
     # ---------------------------------------------------------
     with container_st:
-        # st.subheader("1. ST Baseline (Heuristic)")
-
         st.markdown(
             f"<h4>1. ST Baseline (Heuristic)</h4>",
             unsafe_allow_html=True
         ) 
-        
-        
         # ถ้ารันอยู่ ให้ทำงาน
         if run_button:
             with st.spinner("กำลังจัดตารางด้วย ST Baseline..."):
@@ -351,39 +332,29 @@ if run_button or st.session_state.results:
         if "ST Baseline" in st.session_state.results:
             m = st.session_state.results["ST Baseline"]['metrics']
             c1, c2, c3, c4, c5 = st.columns(5)
-            # คอลัมน์ที่ 1 (ตัวอย่างการปรับ)
             c1.metric("🗓️ จำนวนวันที่ใช้", f"{m.get('Total_Days', 0)} วัน")
-            # ใส่ข้อความไว้นอกกล่อง
             c1.markdown(f'<div class="lower-bound-text">Lower Bound: {m.get('Lower_Bound_Days', 0)} วัน</div>', unsafe_allow_html=True)
-
-            # คอลัมน์อื่น ๆ ก็ทำเช่นเดียวกัน
             c2.metric("🎯 Optimality Gap", f"{m.get('Optimality_Gap (%)', 0)}%")
             c3.metric("📊 Utilization", f"{m.get('Global_Util (%)', 0)}%")
             c4.metric("⚡ Runtime", f"{m.get('Runtime_Sec', 0)} s")
             c5.metric("📉 Penalty Score", f"{m.get('Penalty_Score', 0)}")
-            
-            # st.info("ST Baseline คำนวณรอบเดียวไม่มีกราฟการเรียนรู้")
             st.caption("* ST Baseline (Heuristic) เป็นการคำนวณแบบรอบเดียว ไม่มีกราฟการเรียนรู้")
         st.markdown("---")
 
     # ---------------------------------------------------------
-    # 2. Standard GA
+    # Standard GA
     # ---------------------------------------------------------
     with container_ga:
-        # st.subheader("2. Standard GA")
-
         st.markdown(
             f"<h4>2. Standard GA</h4>",
             unsafe_allow_html=True
         ) 
-        # สร้างพื้นที่เปล่ารอก่อน เพื่อให้ UI ไม่กระโดด
         metrics_ph_ga = st.empty()
         chart_ph_ga = st.empty()
 
         if run_button:
             with st.spinner("กำลังจัดตารางด้วย Standard GA..."):
                 start_t = time.time()
-                # วาดกราฟสดลงใน chart_ph_ga
                 _, hist_ga, sched_ga, status_ga = run_ga_standard(
                     surgeries_list, num_generations, pop_size, total_slots, exp_mode, 
                     patience=50, st_progress=None, chart_placeholder=chart_ph_ga
@@ -398,18 +369,14 @@ if run_button or st.session_state.results:
             
             with metrics_ph_ga.container():
                 c1, c2, c3, c4, c5 = st.columns(5)
-                # คอลัมน์ที่ 1 (ตัวอย่างการปรับ)
-                c1.metric("🗓️ จำนวนวันที่ใช้", f"{m.get('Total_Days', 0)} วัน")
-                # ใส่ข้อความไว้นอกกล่อง
-                c1.markdown(f'<div class="lower-bound-text">Lower Bound: {m.get('Lower_Bound_Days', 0)} วัน</div>', unsafe_allow_html=True)
 
-                # คอลัมน์อื่น ๆ ก็ทำเช่นเดียวกัน
+                c1.metric("🗓️ จำนวนวันที่ใช้", f"{m.get('Total_Days', 0)} วัน")
+                c1.markdown(f'<div class="lower-bound-text">Lower Bound: {m.get('Lower_Bound_Days', 0)} วัน</div>', unsafe_allow_html=True)
                 c2.metric("🎯 Optimality Gap", f"{m.get('Optimality_Gap (%)', 0)}%")
                 c3.metric("📊 Utilization", f"{m.get('Global_Util (%)', 0)}%")
                 c4.metric("⚡ Runtime", f"{m.get('Runtime_Sec', 0)} s")
                 c5.metric("📉 Penalty Score", f"{m.get('Penalty_Score', 0)}")
 
-            # แปลง Live chart (ที่วาดไว้ตอนรัน) ให้กลายเป็น Matplotlib ที่สวยงาม ทับลงไปที่เดิม
             if len(hist) > 1:
                 fig, ax = plt.subplots(figsize=(10, 3))
                 ax.plot(hist, label='Fitness (Penalty)', color='#1E40AF', linewidth=2)
@@ -419,10 +386,9 @@ if run_button or st.session_state.results:
         st.markdown("---")
 
     # ---------------------------------------------------------
-    # 3. Hybrid GA-Q
+    # Hybrid GA-Q
     # ---------------------------------------------------------
     with container_q:
-        # st.subheader("3. Hybrid GA-Q")
         st.markdown(
             f"<h4>3. Hybrid GA-Q</h4>",
             unsafe_allow_html=True
@@ -447,12 +413,8 @@ if run_button or st.session_state.results:
             
             with metrics_ph_q.container():
                 c1, c2, c3, c4, c5 = st.columns(5)
-                # คอลัมน์ที่ 1 (ตัวอย่างการปรับ)
                 c1.metric("🗓️ จำนวนวันที่ใช้", f"{m.get('Total_Days', 0)} วัน")
-                # ใส่ข้อความไว้นอกกล่อง
                 c1.markdown(f'<div class="lower-bound-text">Lower Bound: {m.get('Lower_Bound_Days', 0)} วัน</div>', unsafe_allow_html=True)
-
-                # คอลัมน์อื่น ๆ ก็ทำเช่นเดียวกัน
                 c2.metric("🎯 Optimality Gap", f"{m.get('Optimality_Gap (%)', 0)}%")
                 c3.metric("📊 Utilization", f"{m.get('Global_Util (%)', 0)}%")
                 c4.metric("⚡ Runtime", f"{m.get('Runtime_Sec', 0)} s")
@@ -460,7 +422,7 @@ if run_button or st.session_state.results:
 
             if len(hist) > 1:
                 fig, ax = plt.subplots(figsize=(10, 3))
-                ax.plot(hist, label='Fitness (Penalty)', color='#10B981', linewidth=2) # ใช้สีเขียวแยกให้ชัดเจน
+                ax.plot(hist, label='Fitness (Penalty)', color='#10B981', linewidth=2)
                 ax.set_title("Optimization Progress (Hybrid GA-Q)")
                 ax.set_xlabel("Generation"); ax.set_ylabel("Penalty"); ax.grid(True, alpha=0.3)
                 chart_ph_q.pyplot(fig)
@@ -472,7 +434,6 @@ if run_button or st.session_state.results:
     if all(algo in st.session_state.results for algo in ["ST Baseline", "Standard GA", "Hybrid GA-Q"]):
         res = st.session_state.results
         
-        # st.subheader("สรุปผลการเปรียบเทียบรวมทั้ง 3 อัลกอริทึม")
         st.markdown(
             f"<h4>สรุปผลการเปรียบเทียบรวมทั้ง 3 อัลกอริทึม</h4>",
             unsafe_allow_html=True
@@ -520,14 +481,13 @@ if run_button or st.session_state.results:
             label=f'ST Baseline ({res["ST Baseline"]["history"][0]:.2f})'
         )
 
-        # วาดเส้นอื่นตามปกติ
         ax_combine.plot(res["Standard GA"]['history'], label='Standard GA', color='#1E40AF')
         ax_combine.plot(res["Hybrid GA-Q"]['history'], label='Hybrid GA-Q', color='#10B981')
         
         style_plot(ax_combine, "Convergence Comparison of Algorithms", "Generation", "Penalty Score")
         ax_combine.legend(
-            loc='lower center',       # ใช้ฐานของกล่องเป็นจุดอ้างอิง
-            bbox_to_anchor=(0.5, 1.0), # วางฐานไว้ที่ตำแหน่งขอบบนของกราฟพอดี (y=1.0)
+            loc='lower center',
+            bbox_to_anchor=(0.5, 1.0),
             ncol=3,
             frameon=False,
             fontsize=11
@@ -537,8 +497,6 @@ if run_button or st.session_state.results:
         st.markdown("---")
 
         # --- ตารางเวลา ---
-        # st.subheader("การจัดตารางเวลาห้องผ่าตัด (Schedules)")
-
         st.markdown(
             f"<h4>การจัดตารางเวลาห้องผ่าตัด (Schedules)</h4>",
             unsafe_allow_html=True
@@ -546,7 +504,6 @@ if run_button or st.session_state.results:
         
         tabs = st.tabs(["ST Baseline", "Standard GA", "Hybrid GA-Q", "ดาวน์โหลด CSV"])
         
-        # ฟังก์ชันช่วยเตรียมข้อมูลสำหรับ Export เป็น DataFrame
         def prepare_export_data(algo_name, sched_data):
             export_list = []
             for day in sorted(sched_data.keys()):
@@ -570,9 +527,6 @@ if run_button or st.session_state.results:
                         export_list.append(row_data)
             return pd.DataFrame(export_list)
 
-        # -------------------------------------------------------------
-        # แท็บที่ 1-3: แสดงผลตารางเวลาบน UI
-        # -------------------------------------------------------------
         for idx, algo in enumerate(["ST Baseline", "Standard GA", "Hybrid GA-Q"]):
             with tabs[idx]:
                 if algo in res:
@@ -582,14 +536,12 @@ if run_button or st.session_state.results:
                         with st.expander(f"วันที่ {day + 1}", expanded=(day==0)):
                             for or_id in sorted(sched_data[day].keys(), key=lambda x: str(x)):
                                 
-                                # คำนวณ Utilization ย่อย
                                 total_booked_today = sum(c['booked_time'] for c in sched_data[day][or_id])
                                 util_percent = (total_booked_today / total_avail_minutes_per_day) * 100
                                 
                                 st.markdown(f"**ห้องผ่าตัด (OR): {or_id}** &nbsp;&nbsp;|&nbsp;&nbsp; ใช้งาน: **{total_booked_today}/{total_avail_minutes_per_day}** นาที (**{util_percent:.1f}%**)")
                                 
                                 df_display = prepare_export_data(algo, {day: {or_id: sched_data[day][or_id]}})
-                                # ลบคอลัมน์ที่ไม่จำเป็นต้องแสดงใน UI ออก (เพราะมีหัวข้ออยู่แล้ว)
                                 df_display = df_display.drop(columns=["อัลกอริทึม (Algorithm)", "วันที่ (Day)", "ห้องผ่าตัด (OR)"])
 
                                 st.dataframe(
@@ -602,11 +554,7 @@ if run_button or st.session_state.results:
                                         "น้ำหนัก (Weight)": st.column_config.NumberColumn("น้ำหนัก (Weight)", format="%.2f")
                                     }
                                 )
-                            # st.markdown("<br>", unsafe_allow_html=True)
 
-        # -------------------------------------------------------------
-        # แท็บที่ 4: ดาวน์โหลดข้อมูล (Download CSV)
-        # -------------------------------------------------------------
         with tabs[3]:
             st.markdown(
                 f"""
@@ -624,7 +572,6 @@ if run_button or st.session_state.results:
             
             all_dfs = []
             
-            # ส่วนดาวน์โหลดแยกตาม Algorithm ในรูปแบบ Card Grid
             col1, col2, col3 = st.columns(3)
             algo_cols = [col1, col2, col3]
             algos = ["ST Baseline", "Standard GA", "Hybrid GA-Q"]
@@ -650,14 +597,11 @@ if run_button or st.session_state.results:
                           key=f"dl_{algo}",
                           use_container_width=True
                       )
-# มันมีเส้นขีด ระหว่า label="ดาวน์โหลดไฟล์ CSV" และ สรุปการจัดตารางเวลาห้องผ่าตัดรวม มันคือตรงไหนต้องการเอาออก
                       st.markdown("</div>", unsafe_allow_html=True)
 
-            # ส่วนดาวน์โหลดรวม (Combined)
             if all_dfs:
                 st.markdown("""<div style='margin: 10px 0 25px 0;'></div>""", unsafe_allow_html=True)
                 
-                # จัดกลุ่มปุ่มดาวน์โหลดรวมให้อยู่ในพื้นที่ที่เด่นขึ้นเล็กน้อย
                 c_left, c_mid, c_right = st.columns([1, 2, 1])
                 with c_mid:
                     st.markdown("<span style='display:block; text-align:center; font-size:16px; font-weight:600;'>สรุปการจัดตารางเวลาห้องผ่าตัดรวม</span>", unsafe_allow_html=True)

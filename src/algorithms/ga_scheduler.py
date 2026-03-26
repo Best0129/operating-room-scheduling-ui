@@ -43,47 +43,33 @@ def generate_initial_population(surgeries, POP_SIZE, CLUSTER_TO_ORS):
     population = []
     
     for _ in range(POP_SIZE):
-        # 1. สร้างลำดับเคสผ่าตัด (Permutation) 
+        # สร้างลำดับเคสผ่าตัด (Permutation) 
         order = list(range(len(surgeries)))
         random.shuffle(order)
-        
-        # 2. การสุ่มเลือกห้องผ่าตัด (OR Assignment) - ใช้ตรรกะ List Comprehension เหมือน Jupyter
-        # แต่ปรับให้เขียนอ่านง่ายขึ้นในโปรเจกต์ขนาดใหญ่
+
         try:
             assigned_or_list = [
                 random.choice(CLUSTER_TO_ORS[surgeries[i]['cluster']]) 
                 for i in order
             ]
         except KeyError as e:
-            # กรณีเจอ Cluster ในข้อมูลจริงที่ไม่ตรงกับใน Config (ga_config.py)
-            # ให้แสดง Error แจ้งผู้ใช้ และหยุดการทำงานเพื่อความถูกต้องของงานวิจัย
-            raise KeyError(f"❌ ไม่พบชื่อ Cluster '{e.args[0]}' ใน CONFIGS ของโหมดปัจจุบัน "
+            raise KeyError(f"ไม่พบชื่อ Cluster '{e.args[0]}'"
                           f"กรุณาตรวจสอบการตั้งค่าในไฟล์ ga_config.py")
-
-        # 3. บันทึกโครโมโซมเข้าสู่ประชากร 
         population.append({
             'order': order, 
             'assigned_or_list': assigned_or_list, 
             'fitness': None
         })
-        
     return population
 
 
 def tournament_selection(population, tournament_size, num_parents):
     selected = []
-    
-    # ป้องกัน ValueError จาก random.sample หาก tournament_size > len(population)
     actual_size = min(tournament_size, len(population))
-    
     for _ in range(num_parents):
-        # 1. สุ่มผู้ท้าชิงจากประชากร (เหมือน Jupyter)
         candidates = random.sample(population, actual_size)
-        
-        # 2. เลือกตัวที่มีค่า Fitness ต่ำที่สุด (Minimization Problem)
         winner = min(candidates, key=lambda ind: ind['fitness'])
         selected.append(winner)
-        
     return selected
 
 
@@ -91,22 +77,15 @@ def tournament_selection(population, tournament_size, num_parents):
 # Crossover/Mutation OPERATORS (ตาม Action ที่จะให้ Q-Agent เลือก)
 # ----------------------------------------------------
 def crossover_single_point(parent1, parent2):
-    """
-    Crossover: ใช้เทคนิค Order Crossover (OX) ตามหลักการใน Jupyter Notebook
-    รักษาความต่อเนื่องของลำดับเคส (Order) และการจับคู่ห้องผ่าตัด (Assignment)
-    """
     p1_order, p2_order = parent1['order'], parent2['order']
     p1_or, p2_or = parent1['assigned_or_list'], parent2['assigned_or_list']
     size = len(p1_order)
-    
-    # 1. Safety Check (จาก UI): ป้องกัน Error กรณีข้อมูลมีน้อย
+
     if size < 2:
         return copy.deepcopy(parent1)
-    
-    # 2. เลือกช่วง Segment (จาก Notebook): ใช้ random.sample เพื่อหาจุดเริ่มและจบ
+
     start, end = sorted(random.sample(range(size), 2))
-    
-    # 3. สร้าง Order ของลูก (OX Logic - เหมือน Notebook เป๊ะๆ)
+
     offspring_order = [None] * size
     segment = p1_order[start:end+1]
     offspring_order[start:end+1] = segment # คัดลอกส่วนจากพ่อมาวาง
@@ -120,7 +99,6 @@ def crossover_single_point(parent1, parent2):
         offspring_order[ptr] = item
         ptr = (ptr + 1) % size
         
-    # 4. สร้าง Mapping การจับคู่ห้อง (OR Mapping Logic)
     # เพื่อให้ลูกจำได้ว่า เคส ID ไหน พ่อแม่เคยจัดให้ลงห้องไหน (ป้องกันการสลับห้องมั่ว)
     p1_map = {idx: r for idx, r in zip(p1_order, p1_or)}
     p2_map = {idx: r for idx, r in zip(p2_order, p2_or)}
@@ -141,37 +119,24 @@ def crossover_single_point(parent1, parent2):
 
 
 def crossover_two_point(parent1, parent2):
-    """
-    Two-point Crossover: เก็บส่วนหัวและส่วนท้ายจาก P1 และเติมส่วนกลางจาก P2
-    อิงตามหลักการ Jupyter Notebook โดยเพิ่มการจัดการหน่วยความจำ (Deepcopy) 
-    และการตรวจสอบขนาดข้อมูลเพื่อป้องกัน Error
-    """
     p1_order, p2_order = parent1['order'], parent2['order']
     p1_or, p2_or = parent1['assigned_or_list'], parent2['assigned_or_list']
     size = len(p1_order)
     
-    # 1. Safety Check (จาก UI): หากข้อมูลมีน้อยเกินไป (เช่น < 4 เคส) ไม่ควรทำ 2-point
     if size < 4:
         return copy.deepcopy(parent1)
     
-    # 2. เลือกจุดตัด (ตามหลักการ Jupyter: แบ่งครึ่งเพื่อหาจุดหัวและท้าย)
     # cp1 คือจุดตัดช่วงแรก, cp2 คือจุดตัดช่วงหลัง
     cp1 = random.randint(1, size // 2)
     cp2 = random.randint(size // 2, size - 1)
     
-    # 3. สร้างลำดับ (Order) สำหรับลูก
+    # สร้างลำดับ (Order) สำหรับลูก
     offspring_order = [None] * size
-    # คัดลอกส่วนหัวและส่วนท้ายจาก Parent 1 (หัวใจหลักของงานวิจัย)
     offspring_order[:cp1] = p1_order[:cp1]
     offspring_order[cp2:] = p1_order[cp2:]
-    
-    # กรองเอาเฉพาะเคสที่ยังไม่ได้ถูกเลือกใส่ในตัวลูก (ตัด None ออกก่อนทำ Set)
     p1_segment_set = {item for item in offspring_order if item is not None}
-    
-    # ดึงเคสที่เหลือจาก Parent 2 โดยรักษาลำดับเดิมไว้
     fill_elements = [item for item in p2_order if item not in p1_segment_set]
     
-    # เติมส่วนที่ว่าง (None) ด้วยสมาชิกจาก Parent 2 ตามลำดับ (เหมือน Jupyter)
     ptr = 0
     for item in fill_elements:
         while ptr < size and offspring_order[ptr] is not None:
@@ -179,7 +144,6 @@ def crossover_two_point(parent1, parent2):
         if ptr < size:
             offspring_order[ptr] = item
 
-    # 4. Mapping ห้องผ่าตัด (OR Assignment Logic)
     # เพื่อให้ลูกจำได้ว่า Case ID นี้ พ่อหรือแม่เคยจัดลงห้องไหน
     p1_map = {idx: r for idx, r in zip(p1_order, p1_or)}
     p2_map = {idx: r for idx, r in zip(p2_order, p2_or)}
@@ -200,10 +164,6 @@ def crossover_two_point(parent1, parent2):
 
 
 def mutate_with_rate(individual, surgeries, rate, CLUSTER_TO_ORS):
-    """
-    Mutation: การกลายพันธุ์เพื่อรักษาความหลากหลายทางพันธุกรรม (Diversity)
-    ประกอบด้วย 2 ส่วน: สลับลำดับคิว และ สุ่มเปลี่ยนห้องผ่าตัด
-    """
     new_order = individual['order'][:]
     new_or_list = individual['assigned_or_list'][:]
     size = len(new_order)
@@ -211,25 +171,18 @@ def mutate_with_rate(individual, surgeries, rate, CLUSTER_TO_ORS):
     if size < 2:
         return individual
 
-    # 1. Swap Mutation: สุ่มสลับคิวงาน 2 งาน (เหมือนกันทั้ง UI และ Notebook)
     if random.random() < rate:
         i, j = random.sample(range(size), 2)
         new_order[i], new_order[j] = new_order[j], new_order[i]
         new_or_list[i], new_or_list[j] = new_or_list[j], new_or_list[i] 
 
-    # 2. Assignment Mutation: สุ่มเปลี่ยนห้องผ่าตัด (ยังคงรักษาเงื่อนไข Cluster)
     if random.random() < rate:
-        # 🌟 จุดตัดสินใจ: ใน Notebook คุณใช้ค่าคงที่ 5 
-        # แต่แนะนำให้ใช้ % ของจำนวนเคส (เช่น 5% ของงานทั้งหมด) 
-        # เพื่อให้การกลายพันธุ์ไม่ "ทำลาย" โครงสร้างที่ดีเดิมมากเกินไปในชุดข้อมูลเล็ก
         num_mutations = max(1, int(size * 0.05)) 
         
         for _ in range(num_mutations):
             mut_idx = random.randrange(size)
             case_idx = new_order[mut_idx]
-            case_cluster = surgeries[case_idx]['cluster'] # เข้าถึงแบบ Notebook
-            
-            # ตรวจสอบความถูกต้องของ Cluster ก่อนสุ่มห้องใหม่
+            case_cluster = surgeries[case_idx]['cluster'] 
             if case_cluster in CLUSTER_TO_ORS and CLUSTER_TO_ORS[case_cluster]:
                 new_or_list[mut_idx] = random.choice(CLUSTER_TO_ORS[case_cluster])
     
@@ -241,71 +194,52 @@ def mutate_with_rate(individual, surgeries, rate, CLUSTER_TO_ORS):
 
 
 def standard_ga_crossover(parent1, parent2):
-    """
-    Standard GA Crossover: อิงตาม Notebook 100%
-    ใช้ OX สำหรับลำดับ และ Mapping สำหรับห้องผ่าตัด
-    """
     size = len(parent1['order'])
     if size < 2:
         return copy.deepcopy(parent1)
 
-    # 1. เลือกช่วง Segment จาก Parent 1
     start, end = sorted(random.sample(range(size), 2))
-    
-    # 2. Crossover ส่วนลำดับ (Order) - OX Technique
+
     child_order = [None] * size
     segment = parent1['order'][start:end+1]
     child_order[start:end+1] = segment
     
     set_segment = set(segment)
-    # กรองเอาเฉพาะตัวที่ Parent 2 มีแต่ใน segment ไม่มี
     remaining = [item for item in parent2['order'] if item not in set_segment]
     
     ptr = (end + 1) % size
     for item in remaining:
         child_order[ptr] = item
         ptr = (ptr + 1) % size
-        
-    # 3. Crossover ส่วนห้อง (Room Assignment) - Map Inheritance
+
     child_or_list = [None] * size
     p1_or_map = {case_idx: r for case_idx, r in zip(parent1['order'], parent1['assigned_or_list'])}
     p2_or_map = {case_idx: r for case_idx, r in zip(parent2['order'], parent2['assigned_or_list'])}
     
     for i in range(size):
         case_idx = child_order[i]
-        # logic: ถ้าตำแหน่งอยู่ในช่วง segment ให้ใช้ห้องจาก P1, นอกนั้นใช้ห้องจาก P2 (ตาม Case ID)
         if start <= i <= end:
             child_or_list[i] = p1_or_map[case_idx]
         else:
             child_or_list[i] = p2_or_map[case_idx]
-            
     return {'order': child_order, 'assigned_or_list': child_or_list, 'fitness': None}
 
 
 def standard_ga_mutation(individual, mutation_rate, surgeries, CLUSTER_TO_ORS):
-    """
-    Standard GA Mutation: อิงตาม Notebook 100%
-    ใช้ Inversion Mutation (กลับด้าน) และ Random Assignment Mutation
-    """
     mutated_order = individual['order'][:]
     mutated_or_list = individual['assigned_or_list'][:]
     size = len(mutated_order)
 
-    # 1. Mutation ลำดับ (Order) - Inversion Technique
     if random.random() < mutation_rate:
         start, end = sorted(random.sample(range(size), 2))
-        
-        # จำกัดระยะไม่ให้พังคำตอบเดิมเกินไป (Capped at 50 จาก Notebook)
+
         if end - start > 50: 
             end = start + 50   
-            
-        # กลับด้านส่วนที่เลือก (ทั้งลำดับและห้องเพื่อให้สอดคล้องกัน)
+
         mutated_order[start:end] = mutated_order[start:end][::-1]
         mutated_or_list[start:end] = mutated_or_list[start:end][::-1]
 
-    # 2. Mutation การเลือกห้อง (OR Assignment) - Random Points
     if random.random() < mutation_rate:
-        # สุ่มแก้ 1-10 จุด (จาก Notebook)
         num_mutations = random.randint(1, 10) 
         for _ in range(num_mutations):
             idx = random.randrange(size)
@@ -326,17 +260,10 @@ def standard_ga_mutation(individual, mutation_rate, surgeries, CLUSTER_TO_ORS):
 # ----------------------------------------------------
 # RUN (Standard GA และ Hybrid GA-Q)
 # ----------------------------------------------------
-
 def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, patience=50, st_progress=None, chart_placeholder=None):
-    """
-    Standard GA: อิงตามหลักการ Jupyter Notebook 100% 
-    เพิ่มระบบ Early Stopping และใช้ตรรกะ Inversion Mutation
-    🌟 ปรับปรุง: รองรับการแสดงผล Live Plotting ผ่าน chart_placeholder
-    """
     current_cfg = CONFIGS[mode]
     cluster_mapping = current_cfg["CLUSTER_TO_ORS"]
     
-    # 🌟 แก้ไข: ใช้ set() เพื่อป้องกันการนับห้องซ้ำเหมือนฝั่ง UI
     all_or_ids = list(set(str(or_id).strip() for ors in cluster_mapping.values() for or_id in ors))
     buffer_slots = BUFFER_SLOTS 
 
@@ -395,33 +322,25 @@ def run_ga_standard(surgeries, num_gen, pop_size, total_slots, mode, patience=50
         
         population = next_gen
 
-        # 🌟 อัปเดต Progress Bar และพล็อตกราฟ Live
         if st_progress:
             st_progress.progress((gen + 1) / num_gen)
             
-        # อัปเดตกราฟทุกๆ 10 Generation เพื่อไม่ให้หน้าเว็บกระตุก
+        # อัปเดตกราฟทุกๆ 10 Generation
         if chart_placeholder and gen % 10 == 0:
             chart_placeholder.line_chart(history)
 
-    # 🌟 วาดกราฟจุดสุดท้ายก่อนจบฟังก์ชัน (กรณีที่ลูปจบแบบพอดีหรือ Early Stop)
     if chart_placeholder:
         chart_placeholder.line_chart(history)
 
     final_best = min(population, key=lambda x: x['fitness'])
     final_sched, final_status = decode_individual(final_best, surgeries, all_or_ids, total_slots, buffer_slots)
-    
     return final_best, history, final_sched, final_status
 
 
 def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50, st_progress=None, chart_placeholder=None):
-    """
-    Hybrid GA-Q-learning: อิงตามหลักการ Jupyter Notebook 100%
-    🌟 ปรับปรุง: รองรับการแสดงผล Live Plotting ผ่าน chart_placeholder
-    """
     current_cfg = CONFIGS[mode]
     cluster_mapping = current_cfg["CLUSTER_TO_ORS"]
     
-    # 🌟 แก้ไข: ใช้ set() ป้องกันห้องซ้ำ
     all_or_ids = list(set(str(or_id).strip() for ors in cluster_mapping.values() for or_id in ors))
     
     population = generate_initial_population(surgeries, pop_size, cluster_mapping)
@@ -469,8 +388,7 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
             offspring = mutate_with_rate(offspring, surgeries, ops['mutation_rate'], cluster_mapping)
             
             child_sched, child_status = decode_individual(offspring, surgeries, all_or_ids, total_slots, BUFFER_SLOTS)
-            offspring['fitness'] = evaluate_fitness(child_sched, child_status, total_slots, 
-                                                 W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
+            offspring['fitness'] = evaluate_fitness(child_sched, child_status, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
             next_population.append(offspring)
 
         new_best_fitness = min(next_population, key=lambda ind: ind['fitness'])['fitness']
@@ -482,7 +400,6 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
             no_improvement_count += 1
 
         next_state = get_state(next_population, fitness_var_threshold)
-        
         old_q = q_table[current_state, action]
         max_future_q = np.max(q_table[next_state])
         q_table[current_state, action] = (1 - ALPHA) * old_q + ALPHA * (reward + GAMMA * max_future_q)
@@ -499,15 +416,12 @@ def run_ga_hybrid_q(surgeries, num_gen, pop_size, total_slots, mode, patience=50
             best_fitness_history.extend([new_best_fitness] * remaining_gens)
             break
 
-        # 🌟 อัปเดต UI Progress Bar และ Live Chart
         if st_progress:
             st_progress.progress((gen + 1) / num_gen)
             
-        # พล็อตกราฟ Live ทุกๆ 10 Generation
         if chart_placeholder and gen % 10 == 0:
             chart_placeholder.line_chart(best_fitness_history)
 
-    # 🌟 วาดกราฟเส้นสุดท้ายให้สมบูรณ์
     if chart_placeholder:
         chart_placeholder.line_chart(best_fitness_history)
 

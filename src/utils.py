@@ -4,7 +4,6 @@ import math
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-# --- TIME CONVERSION ---
 def slot_to_time(slot_number, OPERATING_TIME, SLOT_DURATION_MIN):
     # คำนวณนาทีเริ่มต้นจากชั่วโมงเปิดห้องผ่าตัด
     start_hour = OPERATING_TIME[0]
@@ -22,42 +21,28 @@ def slot_to_time(slot_number, OPERATING_TIME, SLOT_DURATION_MIN):
 
 
 def decode_individual(individual, surgeries, ALL_OR_IDS, TOTAL_SLOTS_PER_DAY, BUFFER_SLOTS):
-    """
-    ถอดรหัสโครโมโซมเป็นตารางเวลา: อิงตามตรรกะ Jupyter Notebook 100%
-    ตรรกะ: หากเคสผ่าตัดจะทำให้เลิกงานเกินเวลาปกติ (Overtime) ให้ยกเคสนั้นไปเริ่มเช้าวันใหม่ทันที
-    """
     # โครงสร้าง: { day_index: { or_id: [case1, case2, ...] } }
     OR_schedules = defaultdict(lambda: defaultdict(list))    
-    
-    # 🌟 บังคับให้ Key ของ room_status เป็น String เสมอ
     room_status = {str(or_id).strip(): {'day': 0, 'clock': 0} for or_id in ALL_OR_IDS}
     
     for i, idx in enumerate(individual['order']):
         surgery = surgeries[idx]
-        
-        # 🌟 บังคับให้ or_id เป็น String เพื่อให้จับคู่กับ room_status ได้พอดี
         or_id = str(individual['assigned_or_list'][i]).strip()
         
-        # 1. ดึงสถานะปัจจุบันของห้องที่ถูกเลือก
         curr_day = room_status[or_id]['day']
         curr_clock = room_status[or_id]['clock']
         
-        # 2. คำนวณจุดเริ่มต้น (ต้องมี Buffer ถ้าไม่ใช่เคสแรกของวัน)
         start_slot = curr_clock
         if start_slot > 0: 
             start_slot += BUFFER_SLOTS
             
-        # 3. คำนวณจุดสิ้นสุดที่เป็นไปได้
         potential_end = start_slot + surgery['slots_needed']
         
-        # 4. ตรรกะการขึ้นวันใหม่ (อิงตาม Notebook)
-        # ถ้าจัดลงไปแล้วเกินเวลาทำการปกติ ให้ไปเริ่มเช้าวันใหม่
         if potential_end > TOTAL_SLOTS_PER_DAY:
             curr_day += 1      # ขยับไปวันถัดไป
             start_slot = 0     # เริ่มที่ Slot 0 (เวลาเริ่มงานตอนเช้า)
             potential_end = surgery['slots_needed']
             
-        # 5. บันทึกลงตาราง
         OR_schedules[curr_day][or_id].append({
             'Encounter ID': surgery['Encounter ID'],
             'Service': surgery.get('Service', 'N/A'), 
@@ -69,26 +54,17 @@ def decode_individual(individual, surgeries, ALL_OR_IDS, TOTAL_SLOTS_PER_DAY, BU
             'day': curr_day
         })
         
-        # 6. อัปเดตสถานะห้องเพื่อใช้คำนวณเคสถัดไป
         room_status[or_id]['day'] = curr_day
         room_status[or_id]['clock'] = potential_end
-
     return OR_schedules, room_status
 
 
-# --- FITNESS FUNCTION ---
 def evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERTIME, W_IMBALANCE):
-    """
-    Fitness Function: อ้างอิงตามหลักการใน Jupyter Notebook
-    เน้นการลด Makespan, Overtime และความไม่สมดุลของงาน (Imbalance)
-    """
     weighted_overtime = 0
     total_finish_slots = [] 
 
-    # 1. คำนวณเวลาจบงานของแต่ละห้อง (Global Finish Slot)
     for or_id, status in room_status.items():
         # Global Slot = (จำนวนวัน * total_slot) + slot ที่จบในวันนั้น
-        # ช่วยให้เห็นภาพรวมเวลาจบงานตั้งแต่วันแรกจนถึงวันสุดท้าย
         finish_at = (status['day'] * TOTAL_SLOTS) + status['clock']
         total_finish_slots.append(finish_at)
     
@@ -105,10 +81,10 @@ def evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERT
                 if case['end_slot'] > TOTAL_SLOTS:
                     # คำนวณส่วนที่เกินจากเวลาปกติ
                     overlap = case['end_slot'] - max(TOTAL_SLOTS, case['start_slot'])
-                    # ใช้ค่า Weight 0.5 เป็นค่าเริ่มต้นตาม Notebook
+                    # ใช้ค่า Weight 0.5 เป็นค่าเริ่มต้น
                     weighted_overtime += overlap * case.get('Weight', 0.5)
 
-    # 3. Normalization (ปรับค่าให้อยู่ในสเกล 0-1 ตามหลักการใน Notebook)
+    # 3. Normalization
     # ใช้ค่าคงที่ 60 (จำนวนวันโดยประมาณ) เป็นตัวหารสำหรับ Makespan
     norm_makespan = global_makespan / (60 * TOTAL_SLOTS) 
     # หารด้วยความจุรวมของทุกห้องผ่าตัดสำหรับ Overtime
@@ -117,41 +93,35 @@ def evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERT
     norm_imbalance = global_imbalance / TOTAL_SLOTS
 
     # 4. คำนวณคะแนน Fitness (ยิ่งน้อยยิ่งดี)
-    # ตัด W_PRIORITY ออกเพื่อให้เหมือนกับใน Notebook เป๊ะๆ
     fitness_score = (norm_makespan * W_MAKESPAN) + \
                     (norm_overtime * W_OVERTIME) + \
                     (norm_imbalance * W_IMBALANCE)
-                    
     return fitness_score
 
 
 def calculate_metrics(OR_schedules, room_status, TOTAL_SLOTS, SLOT_DURATION_MIN, ALL_OR_IDS, surgeries, mode):
-    """
-    คำนวณตัวชี้วัดประสิทธิภาพ (KPIs): รวมตรรกะจาก Notebook และระบบวัดผล Optimality
-    [cite: 2026-03-12]
-    """
     if not room_status:
         return {}
 
     total_booked_min = sum(s['booked_time'] for s in surgeries)
     num_rooms = len(ALL_OR_IDS)
     
-    # 1. คำนวณ Makespan (จำนวนวันที่ใช้จริง) - อิงตาม Notebook
+    # คำนวณ Makespan (จำนวนวันที่ใช้จริง)
     # หาค่า day ที่สูงที่สุดจาก room_status และ +1 เพราะ index เริ่มที่ 0
     max_day_idx = max(status['day'] for status in room_status.values())
     total_days_used = max_day_idx + 1 
     
-    # 2. คำนวณ Theoretical Lower Bound (LB)
+    # คำนวณ Theoretical Lower Bound (LB)
     # สูตร: ผลรวมเวลาผ่าตัดทั้งหมด / ความจุรวมของห้องผ่าตัดทุกห้องใน 1 วัน
     daily_capacity_per_room = TOTAL_SLOTS * SLOT_DURATION_MIN
     total_daily_capacity = num_rooms * daily_capacity_per_room
     lb_days = math.ceil(total_booked_min / total_daily_capacity)
     
-    # 3. คำนวณ Optimality Gap (%) 
+    # คำนวณ Optimality Gap (%) 
     # วัดว่าจำนวนวันที่ใช้จริง ห่างจากค่าทางทฤษฎีที่น้อยที่สุดกี่เปอร์เซ็นต์
     gap_percent = ((total_days_used - lb_days) / lb_days) * 100 if lb_days > 0 else 0
     
-    # 4. คำนวณ Total Overtime (สะสมจากทุกวันทุกห้อง) - อิงตาม Notebook
+    # คำนวณ Total Overtime (สะสมจากทุกวันทุกห้อง)
     total_ot_min = 0
     for day in OR_schedules:
         for or_id in OR_schedules[day]:
@@ -162,12 +132,12 @@ def calculate_metrics(OR_schedules, room_status, TOTAL_SLOTS, SLOT_DURATION_MIN,
                     ot_slots = case['end_slot'] - max(TOTAL_SLOTS, case['start_slot'])
                     total_ot_min += ot_slots * SLOT_DURATION_MIN
                     
-    # 5. คำนวณ Utilization (%) - อิงตาม Notebook
+    # คำนวณ Utilization (%)
     # สูตร: (เวลาผ่าตัดรวม) / (จำนวนห้อง * จำนวนวันที่เปิดใช้จริง * เวลาทำการต่อวัน)
     total_capacity_available = num_rooms * total_days_used * daily_capacity_per_room
     global_util = (total_booked_min / total_capacity_available) * 100 if total_capacity_available > 0 else 0
     
-    # 6. ดึง Penalty Score จาก Fitness Function ที่เรา Sync กับ Notebook แล้ว
+    # 6. ดึง Penalty Score จาก Fitness Functio
     from config.ga_config import W_MAKESPAN, W_OVERTIME, W_IMBALANCE
     penalty = evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
 

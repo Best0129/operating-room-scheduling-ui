@@ -6,8 +6,6 @@ from pathlib import Path
 from config.ga_config import CONFIGS
 import streamlit as st
 
-# Load dataset
-# ==========================================
 def load_dataset(mode):
     if mode == "Experiment 1 (Kaggle)":
         # สำหรับ Experiment 1 (Kaggle)
@@ -37,44 +35,27 @@ def load_dataset(mode):
 
 
 def calculate_case_weights(df, service_col='Service', time_col='Booked Time (min)'):
-    """
-    คำนวณน้ำหนักความสำคัญของเคส (Weight): อิงตามหลักการใน Jupyter Notebook
-    ใช้สัดส่วน 70:30 ระหว่างเวลาที่จอง และความซับซ้อนเฉลี่ยของแผนกนั้นๆ
-    """
     if df.empty:
         return {}
 
-    # 1. คำนวณค่าเฉลี่ยความซับซ้อนแยกตามแผนก (เหมือน Notebook)
     service_avg = df.groupby(service_col)[time_col].mean()
     max_avg = service_avg.max() if not service_avg.empty else 1
     max_booked = df[time_col].max() if not df.empty else 1
     
     weights = {}
     for idx, row in df.iterrows():
-        # 2. คำนวณคะแนน (Normalization) - เหมือน Notebook
-        # time_score: สัดส่วนเวลาของเคสนี้เทียบกับเคสที่นานที่สุด
         time_score = row[time_col] / max_booked
-        
-        # comp_score: สัดส่วนความซับซ้อนเฉลี่ยของแผนกนี้เทียบกับแผนกที่ซับซ้อนที่สุด
         comp_score = service_avg.get(row[service_col], 0.5) / max_avg
-        
-        # 3. รวมคะแนน (Weighted Sum) ตามสูตรวิจัยของคุณ [cite: 2026-03-12]
         weights[idx] = round((0.7 * time_score) + (0.3 * comp_score), 4)
-        
     return weights
 
 
 def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
-    
     if df.empty:
         return []
     df = df.reset_index(drop=True) 
-    
-    # 1. ดึง Mapping จาก Config ตามโหมดการทดลอง
-    # (ใน Notebook อาจจะเป็นตัวแปร Global แต่ใน UI เราเก็บแยกตามโหมดใน CONFIGS)
     current_mapping = CONFIGS[mode]["SERVICE_TO_CLUSTER"]
 
-    # 2. จัดการเรื่อง Weight
     if 'Weight' in df.columns:  
         case_weights = df['Weight'].to_dict()
     else:
@@ -83,7 +64,6 @@ def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
     surgeries = []
     for idx, row in df.iterrows():
         try:
-            # 3. ดึงค่าจากคอลัมน์ที่ Clean มาแล้ว (ชื่อคอลัมน์ต้องตรงกับใน Notebook)
             booked = int(row['Booked Time (min)'])
 
             if mode == "Experiment 2 (Anesthesia)" or mode == "Experiment 3 (Simulated 1 Year)":
@@ -103,13 +83,11 @@ def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
                 'booked_time': booked,
                 'slots_needed': math.ceil(booked / SLOT_DURATION_MIN),
                 'buffer_slots': BUFFER_SLOTS,
-                # ใช้ 0.5 เป็นค่า Default ตามใน Jupyter Notebook
+                # ใช้ 0.5 เป็นค่า Default
                 'Weight': case_weights.get(idx, 0.5),
                 'Original_Date': row.get('Date', "Unknown")
             })
         except KeyError as e:
-            # แจ้งเตือนผ่าน UI หากไฟล์ CSV ที่ Clean มามีชื่อคอลัมน์ไม่ตรง
-            st.error(f"❌ ไม่พบคอลัมน์ {e} ในชุดข้อมูลที่ Clean มา (Mode: {mode})")
+            st.error(f"ไม่พบคอลัมน์ {e} ในชุดข้อมูลที่ Clean มา (Mode: {mode})")
             return []
-            
     return surgeries
