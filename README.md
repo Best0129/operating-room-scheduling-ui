@@ -50,7 +50,7 @@
 ระบบถูก Deploy บน Streamlit Community Cloud 
 โดยสามารถเข้าใช้งานได้ทันทีผ่านเบราว์เซอร์ 
 
-👉 **[คลิกเพื่อเข้าใช้งานระบบจำลองการจัดตารางเวลาห้องผ่าตัด](https://your-custom-url.streamlit.app)**
+👉 **[คลิกเพื่อเข้าใช้งานระบบจำลองการจัดตารางเวลาห้องผ่าตัด](https://operating-room-scheduling-ui.streamlit.app/)**
 
 ---
 
