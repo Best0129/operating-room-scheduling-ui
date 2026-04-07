@@ -7,14 +7,13 @@ def run_ST(surgeries, TOTAL_SLOTS, BUFFER_SLOTS, mode):
     cluster_to_ors = current_cfg["CLUSTER_TO_ORS"]
     all_or_ids = [or_id for ors in cluster_to_ors.values() for or_id in ors]
 
-    # 2. เรียงลำดับเคสตาม Weight จากมากไปน้อย 
+    # เรียงลำดับเคสตาม Weight จากมากไปน้อย 
     sorted_indices = sorted(range(len(surgeries)), key=lambda i: surgeries[i]['Weight'], reverse=True)
-    
-    # 3. เริ่มทุกห้องที่ วันที่ 0, เวลา 0
+
     room_status = {or_id: {'day': 0, 'clock': 0} for or_id in all_or_ids}
     OR_schedules = defaultdict(lambda: defaultdict(list))
 
-    # 4. วนลูปตามลำดับเคสที่จัดเรียงแล้ว
+    # วนลูปตามลำดับเคสที่จัดเรียงแล้ว
     for idx in sorted_indices:
         surgery = surgeries[idx]
         allowed_ors = cluster_to_ors.get(surgery['cluster'], [])
@@ -22,19 +21,19 @@ def run_ST(surgeries, TOTAL_SLOTS, BUFFER_SLOTS, mode):
         if not allowed_ors:
             continue 
 
-        # 5. เลือกห้องที่ Global Time ต่ำที่สุด 
+        # เลือกห้องที่ Global Time ต่ำที่สุด 
         # Global Time = (day * TOTAL_SLOTS) + clock
         assigned_or = min(allowed_ors, key=lambda r: (room_status[r]['day'] * TOTAL_SLOTS) + room_status[r]['clock'])
         
         curr_day = room_status[assigned_or]['day']
         curr_clock = room_status[assigned_or]['clock']
         
-        # 6. คำนวณจุดเริ่ม (บวก Buffer ถ้าไม่ใช่เคสแรกของวัน)
+        # คำนวณจุดเริ่ม (บวก Buffer ถ้าไม่ใช่เคสแรกของวัน)
         start_slot = curr_clock
         if start_slot > 0:
             start_slot += BUFFER_SLOTS
             
-        # 7. คำนวณจุดสิ้นสุดที่เป็นไปได้ (potential_end)
+        # คำนวณจุดสิ้นสุดที่เป็นไปได้ (potential_end)
         potential_end = start_slot + surgery['slots_needed']
         
         # ถ้าจัดลงไปแล้วเกินเวลาทำการปกติ ให้ไปเริ่มเช้าวันใหม่

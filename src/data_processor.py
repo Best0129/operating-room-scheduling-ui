@@ -78,12 +78,10 @@ def parse_surgeries(df, SLOT_DURATION_MIN, BUFFER_SLOTS, mode):
                 'Encounter ID': int(row['Encounter ID']),
                 'Service': logic_service,
                 'Actual_Dept': actual_dept,
-                # ค้นหา Cluster จาก Mapping ของแต่ละ Experiment
                 'cluster': current_mapping.get(logic_service, 'A'), 
                 'booked_time': booked,
                 'slots_needed': math.ceil(booked / SLOT_DURATION_MIN),
                 'buffer_slots': BUFFER_SLOTS,
-                # ใช้ 0.5 เป็นค่า Default
                 'Weight': case_weights.get(idx, 0.5),
                 'Original_Date': row.get('Date', "Unknown")
             })
