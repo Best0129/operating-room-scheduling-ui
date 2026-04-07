@@ -15,15 +15,15 @@ def initialize_q_table():
 def get_state(population, fitness_var_threshold):
     # ดึงค่า Fitness ทั้งหมดออกมา
     fitness_values = [ind['fitness'] for ind in population if ind['fitness'] is not None]
-    if not fitness_values: return 1 # ถ้ายังไม่มีค่า ให้มองว่า Diversity ต่ำไว้ก่อน
+    if not fitness_values: return 1
     
     # คำนวณ CV = SD / Mean
     mean_f = np.mean(fitness_values)
     std_f = np.std(fitness_values)
     cv = std_f / mean_f if mean_f != 0 else 0
     
-    # State 0: High Diversity (ค้นหาต่อไป)
-    # State 1: Low Diversity (ติดหล่ม - ต้องทำ Mutation หนักๆ)
+    # State 0: High Diversity
+    # State 1: Low Diversity
     return 0 if cv > fitness_var_threshold else 1
 
 
@@ -46,7 +46,6 @@ def generate_initial_population(surgeries, POP_SIZE, CLUSTER_TO_ORS):
         # สร้างลำดับเคสผ่าตัด (Permutation) 
         order = list(range(len(surgeries)))
         random.shuffle(order)
-
         try:
             assigned_or_list = [
                 random.choice(CLUSTER_TO_ORS[surgeries[i]['cluster']]) 
@@ -99,13 +98,9 @@ def crossover_single_point(parent1, parent2):
         offspring_order[ptr] = item
         ptr = (ptr + 1) % size
         
-    # เพื่อให้ลูกจำได้ว่า เคส ID ไหน พ่อแม่เคยจัดให้ลงห้องไหน (ป้องกันการสลับห้องมั่ว)
     p1_map = {idx: r for idx, r in zip(p1_order, p1_or)}
     p2_map = {idx: r for idx, r in zip(p2_order, p2_or)}
 
-    # ลูกจะรับห้องผ่าตัดตามเงื่อนไข: 
-    # - ถ้าอยู่ในช่วงที่คัดลอกจากพ่อมา ให้ใช้ห้องของพ่อ
-    # - ถ้านอกเหนือจากนั้น ให้ใช้ห้องของแม่
     offspring_assigned_or = [
         p1_map[offspring_order[i]] if start <= i <= end else p2_map[offspring_order[i]]
         for i in range(size)
@@ -144,11 +139,10 @@ def crossover_two_point(parent1, parent2):
         if ptr < size:
             offspring_order[ptr] = item
 
-    # เพื่อให้ลูกจำได้ว่า Case ID นี้ พ่อหรือแม่เคยจัดลงห้องไหน
     p1_map = {idx: r for idx, r in zip(p1_order, p1_or)}
     p2_map = {idx: r for idx, r in zip(p2_order, p2_or)}
     
-    # ตรรกะการสืบทอดห้อง:
+    # ตรรกะการสืบทอดห้องผ่าตัด:
     # - ส่วนหัวและท้าย (ที่มาจาก P1) -> ใช้ห้องของ P1
     # - ส่วนกลาง (ที่มาจาก P2) -> ใช้ห้องของ P2
     offspring_assigned_or = [

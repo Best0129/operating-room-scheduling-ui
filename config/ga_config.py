@@ -37,7 +37,6 @@ GAMMA = 0.9             # Discount Factor
 EPSILON_START = 0.9     # Initial Exploration Rate
 EPSILON_DECAY = 0.995   # Rate to decay epsilon each generation
 
-# Threshold สำหรับวัด Diversity (เทียบกับค่า Variance เริ่มต้น)
 # ค่านี้จะถูกคำนวณแบบ Dynamic ใน GA Loop
 FITNESS_VAR_THRESHOLD_FACTOR = 0.05
 
@@ -70,12 +69,6 @@ CONFIGS = {
             'C': [801, 803, 804, 805],
             'D': [806, 807, 808, 701, ' จิตเวช']
         }
-        # "CLUSTER_TO_ORS": {
-        #     'A': [601, 602, 603, 604, 605, 606, 607, 608, 801, 803, 804, 805, 806, 807, 808, 701, 'จิตเวช'],
-        #     'B': [601, 602, 603, 604, 605, 606, 607, 608, 801, 803, 804, 805, 806, 807, 808, 701, 'จิตเวช'],
-        #     'C': [601, 602, 603, 604, 605, 606, 607, 608, 801, 803, 804, 805, 806, 807, 808, 701, 'จิตเวช'],
-        #     'D': [601, 602, 603, 604, 605, 606, 607, 608, 801, 803, 804, 805, 806, 807, 808, 701, 'จิตเวช'],
-        # }
     },
     "Experiment 3 (Simulated 1 Year)": {
         "SERVICE_TO_CLUSTER": {

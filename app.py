@@ -13,7 +13,7 @@ from src.algorithms.ga_scheduler import run_ga_standard, run_ga_hybrid_q
 from src.algorithms.st_scheduler import run_ST
 
 # =================================================================
-# INITIAL SETUP & CSS
+# SETUP & CSS
 # =================================================================
 st.set_page_config(page_title="ระบบจัดตารางเวลาห้องผ่าตัด", layout="wide")
 
@@ -31,7 +31,6 @@ if 'results' not in st.session_state:
 if 'last_exp' not in st.session_state:
     st.session_state.last_exp = None
 
-# ✅ Display names — แยกชื่อที่แสดงผลออกจาก key ภายใน
 DISPLAY_NAMES = {
     "ST Baseline":  "ST(w, DEC, FF)",
     "Standard GA":  "Genetic Algorithm",
@@ -162,7 +161,7 @@ st.markdown(
 st.markdown('<div class="main-title">🏥 ระบบจำลองการจัดตารางเวลาห้องผ่าตัด</div>', unsafe_allow_html=True)
 
 # =================================================================
-# SIDEBAR CONFIGURATION
+# SIDEBAR
 # =================================================================
 
 with st.sidebar:
@@ -314,11 +313,11 @@ if run_button or st.session_state.results:
     # ---------------------------------------------------------
     with container_st:
         st.markdown(
-            f"<h4>1. {DISPLAY_NAMES['ST Baseline']}</h4>",  # ✅ แก้ไข
+            f"<h4>1. {DISPLAY_NAMES['ST Baseline']}</h4>",
             unsafe_allow_html=True
         ) 
         if run_button:
-            with st.spinner(f"กำลังจัดตารางด้วย {DISPLAY_NAMES['ST Baseline']}..."):  # ✅ แก้ไข
+            with st.spinner(f"กำลังจัดตารางด้วย {DISPLAY_NAMES['ST Baseline']}..."):
                 start_t = time.time()
                 sched_st, status_st = run_ST(surgeries_list, total_slots, BUFFER_SLOTS, exp_mode)
                 hist_st = [evaluate_fitness(sched_st, status_st, total_slots, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)]
@@ -335,7 +334,7 @@ if run_button or st.session_state.results:
             c3.metric("📊 Utilization", f"{m.get('Global_Util (%)', 0)}%")
             c4.metric("⚡ Runtime", f"{m.get('Runtime_Sec', 0)} s")
             c5.metric("📉 Penalty Score", f"{m.get('Penalty_Score', 0)}")
-            st.caption(f"* {DISPLAY_NAMES['ST Baseline']} เป็นการคำนวณแบบรอบเดียว ไม่มีกราฟการเรียนรู้")  # ✅ แก้ไข
+            st.caption(f"* {DISPLAY_NAMES['ST Baseline']} เป็นการคำนวณแบบรอบเดียว ไม่มีกราฟการเรียนรู้")
         st.markdown("---")
 
     # ---------------------------------------------------------
@@ -343,14 +342,14 @@ if run_button or st.session_state.results:
     # ---------------------------------------------------------
     with container_ga:
         st.markdown(
-            f"<h4>2. {DISPLAY_NAMES['Standard GA']}</h4>",  # ✅ แก้ไข
+            f"<h4>2. {DISPLAY_NAMES['Standard GA']}</h4>",
             unsafe_allow_html=True
         ) 
         metrics_ph_ga = st.empty()
         chart_ph_ga = st.empty()
 
         if run_button:
-            with st.spinner(f"กำลังจัดตารางด้วย {DISPLAY_NAMES['Standard GA']}..."):  # ✅ แก้ไข
+            with st.spinner(f"กำลังจัดตารางด้วย {DISPLAY_NAMES['Standard GA']}..."):
                 start_t = time.time()
                 _, hist_ga, sched_ga, status_ga = run_ga_standard(
                     surgeries_list, num_generations, pop_size, total_slots, exp_mode, 
@@ -376,7 +375,7 @@ if run_button or st.session_state.results:
             if len(hist) > 1:
                 fig, ax = plt.subplots(figsize=(10, 3))
                 ax.plot(hist, label='Fitness (Penalty)', color='#1E40AF', linewidth=2)
-                ax.set_title(f"Optimization Progress ({DISPLAY_NAMES['Standard GA']})")  # ✅ แก้ไข
+                ax.set_title(f"Optimization Progress ({DISPLAY_NAMES['Standard GA']})")
                 ax.set_xlabel("Generation"); ax.set_ylabel("Penalty Score"); ax.grid(True, alpha=0.3)
                 chart_ph_ga.pyplot(fig)
         st.markdown("---")
@@ -386,14 +385,14 @@ if run_button or st.session_state.results:
     # ---------------------------------------------------------
     with container_q:
         st.markdown(
-            f"<h4>3. {DISPLAY_NAMES['Hybrid GA-Q']}</h4>",  # ✅ แก้ไข
+            f"<h4>3. {DISPLAY_NAMES['Hybrid GA-Q']}</h4>",
             unsafe_allow_html=True
         ) 
         metrics_ph_q = st.empty()
         chart_ph_q = st.empty()
 
         if run_button:
-            with st.spinner(f"กำลังจัดตารางด้วย {DISPLAY_NAMES['Hybrid GA-Q']}..."):  # ✅ แก้ไข
+            with st.spinner(f"กำลังจัดตารางด้วย {DISPLAY_NAMES['Hybrid GA-Q']}..."):
                 start_t = time.time()
                 _, hist_q, sched_q, status_q, _ = run_ga_hybrid_q(
                     surgeries_list, num_generations, pop_size, total_slots, exp_mode, 
@@ -419,7 +418,7 @@ if run_button or st.session_state.results:
             if len(hist) > 1:
                 fig, ax = plt.subplots(figsize=(10, 3))
                 ax.plot(hist, label='Fitness (Penalty)', color='#10B981', linewidth=2)
-                ax.set_title(f"Optimization Progress ({DISPLAY_NAMES['Hybrid GA-Q']})")  # ✅ แก้ไข
+                ax.set_title(f"Optimization Progress ({DISPLAY_NAMES['Hybrid GA-Q']})")
                 ax.set_xlabel("Generation"); ax.set_ylabel("Penalty Score"); ax.grid(True, alpha=0.3)
                 chart_ph_q.pyplot(fig)
         st.markdown("---")
@@ -440,7 +439,7 @@ if run_button or st.session_state.results:
         for algo in ["ST Baseline", "Standard GA", "Hybrid GA-Q"]:
             m = res[algo]['metrics']
             compare_data.append({
-                "Algorithm": DISPLAY_NAMES[algo],  # ✅ แก้ไข
+                "Algorithm": DISPLAY_NAMES[algo],
                 "วันที่ใช้ (Days)": m.get('Total_Days', m.get('Total_Days_Used', 0)),
                 "Optimality Gap (%)": m.get('Optimality_Gap (%)', 0),
                 "Utilization (%)": m.get('Global_Util (%)', m.get('Global_Utilization (%)', 0)),
@@ -473,11 +472,11 @@ if run_button or st.session_state.results:
             color='r', 
             linestyle='--', 
             linewidth=2,
-            label=f"{DISPLAY_NAMES['ST Baseline']} ({res['ST Baseline']['history'][0]:.2f})"  # ✅ แก้ไข
+            label=f"{DISPLAY_NAMES['ST Baseline']} ({res['ST Baseline']['history'][0]:.2f})"
         )
 
-        ax_combine.plot(res["Standard GA"]['history'], label=DISPLAY_NAMES["Standard GA"], color='#1E40AF')   # ✅ แก้ไข
-        ax_combine.plot(res["Hybrid GA-Q"]['history'], label=DISPLAY_NAMES["Hybrid GA-Q"], color='#10B981')   # ✅ แก้ไข
+        ax_combine.plot(res["Standard GA"]['history'], label=DISPLAY_NAMES["Standard GA"], color='#1E40AF')
+        ax_combine.plot(res["Hybrid GA-Q"]['history'], label=DISPLAY_NAMES["Hybrid GA-Q"], color='#10B981')
         
         style_plot(ax_combine, "Convergence Comparison of Algorithms", "Generation", "Penalty Score")
         ax_combine.legend(
@@ -488,7 +487,6 @@ if run_button or st.session_state.results:
             fontsize=11
         )
         st.pyplot(fig_combine)
-
         st.markdown("---")
 
         # --- ตารางเวลา ---
@@ -496,8 +494,6 @@ if run_button or st.session_state.results:
             f"<h4>การจัดตารางเวลาห้องผ่าตัด (Schedules)</h4>",
             unsafe_allow_html=True
         ) 
-        
-        # ✅ แก้ไข — ใช้ DISPLAY_NAMES ใน Tabs
         tabs = st.tabs([
             DISPLAY_NAMES["ST Baseline"],
             DISPLAY_NAMES["Standard GA"],
@@ -540,7 +536,6 @@ if run_button or st.session_state.results:
                                 
                                 st.markdown(f"**ห้องผ่าตัด (OR): {or_id}** &nbsp;&nbsp;|&nbsp;&nbsp; ใช้งาน: **{total_booked_today}/{total_avail_minutes_per_day}** นาที (**{util_percent:.1f}%**)")
                                 
-                                # ✅ แก้ไข — ส่ง DISPLAY_NAMES[algo] เข้าไปแทน algo
                                 df_display = prepare_export_data(DISPLAY_NAMES[algo], {day: {or_id: sched_data[day][or_id]}})
                                 df_display = df_display.drop(columns=["อัลกอริทึม (Algorithm)", "วันที่ (Day)", "ห้องผ่าตัด (OR)"])
 
@@ -578,7 +573,6 @@ if run_button or st.session_state.results:
             
             for i, algo in enumerate(algos):
                 if algo in res:
-                    # ✅ แก้ไข — ส่ง DISPLAY_NAMES[algo] เข้าไป
                     df_algo = prepare_export_data(DISPLAY_NAMES[algo], res[algo]['sched'])
                     all_dfs.append(df_algo)
                     csv = df_algo.to_csv(index=False).encode('utf-8-sig')
@@ -587,7 +581,7 @@ if run_button or st.session_state.results:
                         st.markdown(f"""
                             <div class="download-card">
                                 <span class="download-label">{DISPLAY_NAMES[algo]}</span>
-                        """, unsafe_allow_html=True)  # ✅ แก้ไข
+                        """, unsafe_allow_html=True)
 
                         st.download_button(
                             label="ดาวน์โหลดไฟล์ CSV",

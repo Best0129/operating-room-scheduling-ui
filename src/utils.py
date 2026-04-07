@@ -5,18 +5,11 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 def slot_to_time(slot_number, OPERATING_TIME, SLOT_DURATION_MIN):
-    # คำนวณนาทีเริ่มต้นจากชั่วโมงเปิดห้องผ่าตัด
     start_hour = OPERATING_TIME[0]
     start_total_mins = int(start_hour * 60)
-    
-    # บวกนาทีที่ผ่านไปตามจำนวน Slot
     current_total_mins = start_total_mins + (slot_number * SLOT_DURATION_MIN)
-    
-    # แปลงกลับเป็นชั่วโมงและนาที
     hours = current_total_mins // 60
     mins = current_total_mins % 60
-    
-    # รูปแบบ String HH:MM (เติมเลข 0 ข้างหน้าถ้าหลักเดียว)
     return f"{hours:02d}:{mins:02d}"
 
 
@@ -74,25 +67,19 @@ def evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERT
     # Imbalance: ความต่างของเวลาจบงานของแต่ละห้อง (ใช้ค่าเบี่ยงเบนมาตรฐาน SD)
     global_imbalance = np.std(total_finish_slots) if total_finish_slots else 0
 
-    # 2. คำนวณ Overtime รวม (คิดน้ำหนักตามความสำคัญของเคส)
     for day in OR_schedules:
         for or_id in OR_schedules[day]:
             for case in OR_schedules[day][or_id]:
                 if case['end_slot'] > TOTAL_SLOTS:
                     # คำนวณส่วนที่เกินจากเวลาปกติ
                     overlap = case['end_slot'] - max(TOTAL_SLOTS, case['start_slot'])
-                    # ใช้ค่า Weight 0.5 เป็นค่าเริ่มต้น
                     weighted_overtime += overlap * case.get('Weight', 0.5)
 
-    # 3. Normalization
-    # ใช้ค่าคงที่ 60 (จำนวนวันโดยประมาณ) เป็นตัวหารสำหรับ Makespan
+    # Normalization
     norm_makespan = global_makespan / (60 * TOTAL_SLOTS) 
-    # หารด้วยความจุรวมของทุกห้องผ่าตัดสำหรับ Overtime
     norm_overtime = weighted_overtime / (len(room_status) * TOTAL_SLOTS)
-    # หารด้วยจำนวน Slot ต่อวันสำหรับ Imbalance
     norm_imbalance = global_imbalance / TOTAL_SLOTS
 
-    # 4. คำนวณคะแนน Fitness (ยิ่งน้อยยิ่งดี)
     fitness_score = (norm_makespan * W_MAKESPAN) + \
                     (norm_overtime * W_OVERTIME) + \
                     (norm_imbalance * W_IMBALANCE)
@@ -107,12 +94,10 @@ def calculate_metrics(OR_schedules, room_status, TOTAL_SLOTS, SLOT_DURATION_MIN,
     num_rooms = len(ALL_OR_IDS)
     
     # คำนวณ Makespan (จำนวนวันที่ใช้จริง)
-    # หาค่า day ที่สูงที่สุดจาก room_status และ +1 เพราะ index เริ่มที่ 0
     max_day_idx = max(status['day'] for status in room_status.values())
     total_days_used = max_day_idx + 1 
     
-    # คำนวณ Theoretical Lower Bound (LB)
-    # สูตร: ผลรวมเวลาผ่าตัดทั้งหมด / ความจุรวมของห้องผ่าตัดทุกห้องใน 1 วัน
+    # คำนวณ Lower Bound (LB)
     daily_capacity_per_room = TOTAL_SLOTS * SLOT_DURATION_MIN
     total_daily_capacity = num_rooms * daily_capacity_per_room
     lb_days = math.ceil(total_booked_min / total_daily_capacity)
@@ -121,14 +106,11 @@ def calculate_metrics(OR_schedules, room_status, TOTAL_SLOTS, SLOT_DURATION_MIN,
     # วัดว่าจำนวนวันที่ใช้จริง ห่างจากค่าทางทฤษฎีที่น้อยที่สุดกี่เปอร์เซ็นต์
     gap_percent = ((total_days_used - lb_days) / lb_days) * 100 if lb_days > 0 else 0
     
-    # คำนวณ Total Overtime (สะสมจากทุกวันทุกห้อง)
     total_ot_min = 0
     for day in OR_schedules:
         for or_id in OR_schedules[day]:
             for case in OR_schedules[day][or_id]:
-                # ตรวจสอบว่าจบเกินเวลาทำการปกติหรือไม่
                 if case['end_slot'] > TOTAL_SLOTS:
-                    # คำนวณเฉพาะส่วนที่ล้นออกมาจากขอบเขต TOTAL_SLOTS
                     ot_slots = case['end_slot'] - max(TOTAL_SLOTS, case['start_slot'])
                     total_ot_min += ot_slots * SLOT_DURATION_MIN
                     
@@ -137,7 +119,7 @@ def calculate_metrics(OR_schedules, room_status, TOTAL_SLOTS, SLOT_DURATION_MIN,
     total_capacity_available = num_rooms * total_days_used * daily_capacity_per_room
     global_util = (total_booked_min / total_capacity_available) * 100 if total_capacity_available > 0 else 0
     
-    # 6. ดึง Penalty Score จาก Fitness Functio
+    # ดึง Penalty Score จาก Fitness Function
     from config.ga_config import W_MAKESPAN, W_OVERTIME, W_IMBALANCE
     penalty = evaluate_fitness(OR_schedules, room_status, TOTAL_SLOTS, W_MAKESPAN, W_OVERTIME, W_IMBALANCE)
 
